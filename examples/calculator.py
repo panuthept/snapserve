@@ -1,3 +1,6 @@
+def hello() -> str:
+    return "Hello, world!"
+
 def add(a: float, b: float) -> float:
     return a + b
 

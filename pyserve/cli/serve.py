@@ -19,7 +19,7 @@ def serve(
     daemon: Annotated[bool, typer.Option("--daemon", "-d", is_flag=True, help="Whether to run the server in daemon mode.")] = False,
 ):
     """
-    Serve a Python module as an API.
+    Serve Python functions, classes, and objects as an API.
     """
     attributes: dict[str, Attribute] = load_attributes(module_path)
     server = Server(

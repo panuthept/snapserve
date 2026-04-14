@@ -70,19 +70,9 @@ class Server:
         thread = threading.Thread(target=server.run, daemon=True)
         thread.start()
 
-        print("🌐 PyServe running at: http://localhost:8000")
-        
-        print()
-        print("Available attributes:")
+        print("🌐 PyServe is live:")
         for attr_name, attribute in self.attributes.items():
-            if attribute.type == "function":
-                print(f"({attribute.type}) - {attr_name}{attribute.signature}")
-        for attr_name, attribute in self.attributes.items():
-            if attribute.type == "class":
-                print(f"({attribute.type}) - {attr_name}{attribute.signature}")
-        for attr_name, attribute in self.attributes.items():
-            if attribute.type == "object":
-                print(f"({attribute.type}) - {attr_name} = {attribute.signature}")
+            print(f"- http://{self.host}:{self.port}/{attr_name} ({attribute.type})")
         
         print()
         print("🛑 Press Ctrl+C to stop")
@@ -174,6 +164,10 @@ def create_app(
         }
     
     for attr_name in attributes.keys():
+        @app.options(f"/{attr_name}")
+        async def options_attribute(attr_name=attr_name):
+            return {"allowed_methods": ["POST", "OPTIONS"]}
+
         @app.post(f"/{attr_name}")
         async def call_attribute(request: Request, attr_name=attr_name):
             try:

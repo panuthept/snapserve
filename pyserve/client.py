@@ -1,23 +1,58 @@
 import requests
+from functools import partial
 
+
+def validate_endpoint(endpoint: str, base_url: str = "http://localhost:8000"):
+    url = f"{base_url}/{endpoint}"
+    try:
+        response = requests.options(url)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise ValueError(f"Endpoint '{endpoint}' is not available at {base_url}") from e
+
+def get_client(endpoint: str, base_url: str = "http://localhost:8000") -> "Client":
+    url = f"{base_url}/{endpoint}"
+    response = requests.get(url)
+    response.raise_for_status()
+    data = response.json()
+    attr_type = data.get("type")
+    if attr_type == "function":
+        return FunctionClient(endpoint, base_url)
+    elif attr_type == "class":
+        return ClassClient(endpoint, base_url)
+    elif attr_type == "object":
+        return ObjectClient(endpoint, base_url)
+    else:
+        raise ValueError(f"Unsupported attribute type: {attr_type}")
+
+def remote(endpoint: str, base_url: str = "http://localhost:8000") -> "Client":
+    validate_endpoint(endpoint, base_url)
+    return get_client(endpoint, base_url)
 
 class Client:
     def __init__(self, endpoint: str, base_url: str = "http://localhost:8000"):
         self.base_url = base_url
         self.endpoint = endpoint
-        self.validate_endpoint()
-
-    def validate_endpoint(self):
-        url = f"{self.base_url}/{self.endpoint}"
-        try:
-            response = requests.options(url)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            raise ValueError(f"Endpoint '{self.endpoint}' is not available at {self.base_url}") from e
-
+    
+class FunctionClient(Client):
     def __call__(self, *args, **kwargs):
         payload = {"args": args, "kwargs": kwargs}
         url = f"{self.base_url}/{self.endpoint}"
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        return response.json()["result"]
+
+class ClassClient(Client):
+    pass
+
+class ObjectClient(Client):
+    def __getattr__(self, method_name: str):
+        return partial(self._call_method, method_name, self.endpoint, self.base_url)
+    
+    @staticmethod
+    def _call_method(method_name: str, endpoint: str, base_url: str, *args, **kwargs):
+        url = f"{base_url}/{endpoint}"
+        payload = {"method_name": method_name, "args": args, "kwargs": kwargs}
         response = requests.post(url, json=payload)
         response.raise_for_status()
         return response.json()["result"]

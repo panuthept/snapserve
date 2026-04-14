@@ -121,7 +121,15 @@ def create_app(
                 attributes[new_attr_name] = Attribute(obj, new_attr_name)
             result = {"new_object": new_attr_name}
         else:
-            result = attribute.attr(*args, **kwargs)
+            method_name = payload["method_name"]
+            if hasattr(attribute.attr, method_name):
+                method = getattr(attribute.attr, method_name)
+                if callable(method):
+                    result = method(*args, **kwargs)
+                else:
+                    raise HTTPException(status_code=400, detail=f"Attribute '{method_name}' of '{attr_name}' is not callable.")
+            else:
+                raise HTTPException(status_code=400, detail=f"Attribute '{attr_name}' does not have a method named '{method_name}'.")
         
         # Update cache if enabled
         if cache_manager:
@@ -186,6 +194,10 @@ def create_app(
                 else:
                     result = await coro
                 return {"result": result}
+            except asyncio.TimeoutError:
+                raise HTTPException(status_code=504, detail="Request timed out.")
+            except HTTPException:
+                raise
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
             

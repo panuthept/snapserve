@@ -3,10 +3,10 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "python-serve"
-version = "0.1.8"
+name = "pyserve"
+version = "1.0.0"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.14"
 license = "Apache-2.0"
 authors = [
     {name = "Panuthep Tasawong", email = "panutheptasawong@gmail.com"},
@@ -22,7 +22,7 @@ dependencies = [
 dev = ["pytest>=6.0", "tqdm"]
 
 [project.urls]
-Homepage = "https://github.com/panuthept/python_serve"
+Homepage = "https://github.com/panuthept/pyserve"
 
 [tool.setuptools]
 package-dir = {"" = "."}

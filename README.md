@@ -114,6 +114,5 @@ pyserve serve calculator:add,subtract \
 --max-concurrency 100 \    # Max concurrent requests
 --timeout 30 \             # Request timeout (seconds)
 --cachable \               # Enable result caching
---cache-size 10000 \       # Cache capacity
---daemon                   # Run as a background process (Docker required)
+--cache-size 10000         # Cache capacity
 ```

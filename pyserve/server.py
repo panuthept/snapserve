@@ -105,33 +105,36 @@ def create_app(
     # ------------------------------------------------------------------------------------------
     # Attribute handlers
     # ------------------------------------------------------------------------------------------
+    def execute_function(attribute: Attribute, payload: dict) -> Any:
+        args = payload.get("args", [])
+        kwargs = payload.get("kwargs", {})
+        return attribute.attr(*args, **kwargs)
+
+    def execute_class(attribute: Attribute, payload: dict) -> Any:
+        raise NotImplementedError("Class execution is not yet implemented.")
+    
+    def execute_object(attribute: Attribute, payload: dict) -> Any:
+        args = payload.get("args", [])
+        kwargs = payload.get("kwargs", {})
+        method_or_attribute_name = payload["method_or_attribute_name"]
+        if method_or_attribute_name in attribute.methods:
+            method = getattr(attribute.attr, method_or_attribute_name)
+            return method(*args, **kwargs)
+        elif method_or_attribute_name in attribute.attributes:
+            attribute_value = getattr(attribute.attr, method_or_attribute_name)
+            return attribute_value
+        else:
+            raise HTTPException(status_code=400, detail=f"Object does not have a method or attribute named '{method_or_attribute_name}'.")
+    
     def execute_attribute(attr_name: str, payload: dict) -> Any:
         attribute: Attribute = attributes[attr_name]
 
-        args = payload.get("args", [])
-        kwargs = payload.get("kwargs", {})
         if attribute.type == "function":
-            result = attribute.attr(*args, **kwargs)
+            result = execute_function(attribute, payload)
         elif attribute.type == "class":
-            # Create an object of the class
-            obj = attribute.attr(*args, **kwargs)
-            # Update attribute to the object's class name for better caching and logging
-            new_attr_name = f"{attr_name}({json.dumps(payload, sort_keys=True)})"
-            with threading.Lock():
-                attributes[new_attr_name] = Attribute(obj, new_attr_name)
-            result = {"new_object": new_attr_name}
+            result = execute_class(attribute, payload)
         else:
-            method_or_attribute_name = payload["method_or_attribute_name"]
-            if hasattr(attribute.attr, method_or_attribute_name):
-                method_or_attribute = getattr(attribute.attr, method_or_attribute_name)
-                if callable(method_or_attribute):
-                    method = method_or_attribute
-                    result = method(*args, **kwargs)
-                else:
-                    attribute_value = method_or_attribute
-                    result = attribute_value
-            else:
-                raise HTTPException(status_code=400, detail=f"Attribute '{attr_name}' does not have a method/attribute named '{method_or_attribute_name}'.")
+            result = execute_object(attribute, payload)
         
         # Update cache if enabled
         if cache_manager:

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyserve"
+version = "0.1.8"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+authors = [
+    {name = "Panuthep Tasawong", email = "panutheptasawong@gmail.com"},
+]
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "requests",
+    "typer",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=6.0", "tqdm"]
+
+[project.urls]
+Homepage = "https://github.com/panuthept/pyserve"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyserve*"]
+
+[project.scripts]
+pyserve = "pyserve.cli.main:app"

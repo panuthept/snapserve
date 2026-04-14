@@ -35,12 +35,13 @@ pyserve serve calculator:add,subtract
 Call them from Python:
 
 ```python
-from pyserve import Client
+from pyserve import remote
 
-calc = Client()
+add = remote("add")
+subtract = remote("subtract")
 
-print(calc.add(5, 3))      # → 8
-print(calc.subtract(5, 3)) # → 2
+print(add(5, 3))      # → 8
+print(subtract(5, 3)) # → 2
 ```
 
 PyServe supports multiple Python abstractions with a unified interface.
@@ -61,9 +62,9 @@ class Calculator:
 pyserve serve calculator_class:Calculator
 ```
 ```python
-from pyserve import Client
+from pyserve import remote
 
-Calculator = Client()
+Calculator = remote("Calculator")
 
 calc = Calculator()
 print(calc.add(5, 3))      # → 8
@@ -93,9 +94,9 @@ calc = Calculator()
 pyserve serve calculator_class:calc
 ```
 ```python
-from pyserve import Client
+from pyserve import remote
 
-calc = Client()
+calc = remote("calc")
 print(calc.add(5, 3))      # → 8
 print(calc.last_result)    # → 8
 print(calc.subtract(5, 3)) # → 2

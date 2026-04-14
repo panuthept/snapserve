@@ -121,7 +121,17 @@ def create_app(
                 attributes[new_attr_name] = Attribute(obj, new_attr_name)
             result = {"new_object": new_attr_name}
         else:
-            result = attribute.attr(*args, **kwargs)
+            method_or_attribute_name = payload["method_or_attribute_name"]
+            if hasattr(attribute.attr, method_or_attribute_name):
+                method_or_attribute = getattr(attribute.attr, method_or_attribute_name)
+                if callable(method_or_attribute):
+                    method = method_or_attribute
+                    result = method(*args, **kwargs)
+                else:
+                    attribute_value = method_or_attribute
+                    result = attribute_value
+            else:
+                raise HTTPException(status_code=400, detail=f"Attribute '{attr_name}' does not have a method/attribute named '{method_or_attribute_name}'.")
         
         # Update cache if enabled
         if cache_manager:
@@ -164,9 +174,16 @@ def create_app(
         }
     
     for attr_name in attributes.keys():
-        @app.options(f"/{attr_name}")
-        async def options_attribute(attr_name=attr_name):
-            return {"allowed_methods": ["POST", "OPTIONS"]}
+        @app.get(f"/{attr_name}")
+        async def get_attribute(attr_name=attr_name):
+            attribute = attributes[attr_name]
+            return {
+                "name": attr_name,
+                "type": attribute.type,
+                "signature": attribute.signature,
+                "methods": attribute.methods,
+                "attributes": attribute.attributes,
+            }
 
         @app.post(f"/{attr_name}")
         async def call_attribute(request: Request, attr_name=attr_name):
@@ -181,8 +198,16 @@ def create_app(
                 else:
                     result = await coro
                 return {"result": result}
+            except asyncio.TimeoutError:
+                raise HTTPException(status_code=504, detail="Request timed out.")
+            except HTTPException:
+                raise
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
+            
+        @app.options(f"/{attr_name}")
+        async def options_attribute(attr_name=attr_name):
+            return {"allowed_methods": ["GET", "POST", "OPTIONS"]}
     # ------------------------------------------------------------------------------------------
     # Shutdown handling
     # ------------------------------------------------------------------------------------------

@@ -8,7 +8,7 @@ Instead of building and maintaining server code (e.g., with FastAPI or Flask), y
 
 ## 📦 Install
 ```bash
-pip install py-serve
+pip install python-serve
 ```
 
 ## 🚀 Quick Start

@@ -164,9 +164,14 @@ def create_app(
         }
     
     for attr_name in attributes.keys():
-        @app.options(f"/{attr_name}")
-        async def options_attribute(attr_name=attr_name):
-            return {"allowed_methods": ["POST", "OPTIONS"]}
+        @app.get(f"/{attr_name}")
+        async def get_attribute(attr_name=attr_name):
+            attribute = attributes[attr_name]
+            return {
+                "name": attr_name,
+                "type": attribute.type,
+                "signature": attribute.signature,
+            }
 
         @app.post(f"/{attr_name}")
         async def call_attribute(request: Request, attr_name=attr_name):
@@ -183,6 +188,10 @@ def create_app(
                 return {"result": result}
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
+            
+        @app.options(f"/{attr_name}")
+        async def options_attribute(attr_name=attr_name):
+            return {"allowed_methods": ["GET", "POST", "OPTIONS"]}
     # ------------------------------------------------------------------------------------------
     # Shutdown handling
     # ------------------------------------------------------------------------------------------

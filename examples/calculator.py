@@ -8,6 +8,8 @@ def subtract(a: float, b: float) -> float:
     return a - b
 
 class Calculator:
+    name: str = "Simple Calculator"
+
     def __init__(self):
         self.last_result = None
 

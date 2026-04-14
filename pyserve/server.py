@@ -108,10 +108,18 @@ def create_app(
     def execute_function(attribute: Attribute, payload: dict) -> Any:
         args = payload.get("args", [])
         kwargs = payload.get("kwargs", {})
+        # Run function
         return attribute.attr(*args, **kwargs)
 
     def execute_class(attribute: Attribute, payload: dict) -> Any:
-        raise NotImplementedError("Class execution is not yet implemented.")
+        args = payload.get("args", [])
+        kwargs = payload.get("kwargs", {})
+        # Instantiate class
+        obj = attribute.attr(*args, **kwargs)
+        obj_id = str(id(obj))
+        # Create new attribute for the object instance
+        attributes[obj_id] = Attribute(obj)
+        return obj_id
     
     def execute_object(attribute: Attribute, payload: dict) -> Any:
         args = payload.get("args", [])
@@ -127,7 +135,13 @@ def create_app(
             raise HTTPException(status_code=400, detail=f"Object does not have a method or attribute named '{method_or_attribute_name}'.")
     
     def execute_attribute(attr_name: str, payload: dict) -> Any:
-        attribute: Attribute = attributes[attr_name]
+        if payload.get("id"):
+            obj_id = payload["id"]
+            if obj_id not in attributes:
+                raise HTTPException(status_code=400, detail=f"Object with id '{obj_id}' not found.")
+            attribute: Attribute = attributes[obj_id]
+        else:
+            attribute: Attribute = attributes[attr_name]
 
         if attribute.type == "function":
             result = execute_function(attribute, payload)
@@ -168,10 +182,12 @@ def create_app(
             "status": "online",
             "workload": thread_executor._work_queue.qsize(),
             "message": "Welcome to PyServe!",
-            "available_attributes": {
+            "attributes": {
                 attr_name: {
                     "type": attribute.type,
                     "signature": attribute.signature,
+                    "methods": attribute.methods,
+                    "attributes": attribute.attributes,
                 } for attr_name, attribute in attributes.items()
             }
         }

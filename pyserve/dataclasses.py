@@ -9,6 +9,8 @@ class Attribute:
     attr: Any
     type: str = ""
     signature: str = ""
+    methods: list[str] = None
+    attributes: list[str] = None
     
     def __post_init__(self):
         self.type = get_attr_type(self.attr)
@@ -27,3 +29,12 @@ class Attribute:
                     parts.append(f"{param.name}={value!r}")
             class_params = f"({", ".join(parts)})"
             self.signature = f"{class_name}{class_params}"
+
+            self.methods = [
+                name for name, value in inspect.getmembers(self.attr, predicate=inspect.ismethod)
+                if name == "__call__" or (not name.startswith("__") and not name.endswith("__"))
+            ]
+            self.attributes = [
+                name for name, value in inspect.getmembers(self.attr) 
+                if not callable(value) and (not name.startswith("__") and not name.endswith("__"))
+            ]

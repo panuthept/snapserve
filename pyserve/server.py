@@ -121,15 +121,17 @@ def create_app(
                 attributes[new_attr_name] = Attribute(obj, new_attr_name)
             result = {"new_object": new_attr_name}
         else:
-            method_name = payload["method_name"]
-            if hasattr(attribute.attr, method_name):
-                method = getattr(attribute.attr, method_name)
-                if callable(method):
+            method_or_attribute_name = payload["method_or_attribute_name"]
+            if hasattr(attribute.attr, method_or_attribute_name):
+                method_or_attribute = getattr(attribute.attr, method_or_attribute_name)
+                if callable(method_or_attribute):
+                    method = method_or_attribute
                     result = method(*args, **kwargs)
                 else:
-                    raise HTTPException(status_code=400, detail=f"Attribute '{method_name}' of '{attr_name}' is not callable.")
+                    attribute_value = method_or_attribute
+                    result = attribute_value
             else:
-                raise HTTPException(status_code=400, detail=f"Attribute '{attr_name}' does not have a method named '{method_name}'.")
+                raise HTTPException(status_code=400, detail=f"Attribute '{attr_name}' does not have a method/attribute named '{method_or_attribute_name}'.")
         
         # Update cache if enabled
         if cache_manager:
@@ -179,6 +181,8 @@ def create_app(
                 "name": attr_name,
                 "type": attribute.type,
                 "signature": attribute.signature,
+                "methods": attribute.methods,
+                "attributes": attribute.attributes,
             }
 
         @app.post(f"/{attr_name}")

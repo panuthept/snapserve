@@ -8,15 +8,18 @@ def subtract(a: float, b: float) -> float:
     return a - b
 
 class Calculator:
-    def __init__(self, c: float = 0.0):
-        self.c = c
+    def __init__(self):
+        self.last_result = None
+
+    def __call__(self, a: float, b: float) -> float:
+        return add(a, b)
 
     def multiply(self, a: float, b: float) -> float:
-        return a * b
+        self.last_result = a * b
+        return self.last_result
 
     def divide(self, a: float, b: float) -> float:
-        if b == 0:
-            raise ValueError("Cannot divide by zero")
-        return a / b
+        self.last_result = a / b
+        return self.last_result
     
-cals = Calculator(c=1)
+calc = Calculator()

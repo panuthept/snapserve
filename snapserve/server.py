@@ -71,9 +71,12 @@ class Server:
         thread = threading.Thread(target=server.run, daemon=True)
         thread.start()
 
-        print("🌐 PyServe is live:")
+        print("🌐 SnapServe is live:")
         for attr_name, attribute in self.attributes.items():
-            print(f"- http://{self.host}:{self.port}/{attr_name} ({attribute.type})")
+            if attribute.type == "function" or attribute.type == "class":
+                print(f"({attribute.type}) {attr_name}{attribute.signature}")
+            else:
+                print(f"({attribute.type}) {attr_name}: {attribute.signature}")
         
         print()
         print("🛑 Press Ctrl+C to stop")

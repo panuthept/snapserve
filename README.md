@@ -28,8 +28,8 @@ snapserve serve calculator:add,subtract
 ```
 ```
 🌐 SnapServe is live:
-- http://localhost:8000/add (function)
-- http://localhost:8000/subtract (function)
+(function) add(a: float, b: float) -> float 
+(function) subtract(a: float, b: float) -> float 
 ```
 
 Call them from Python:

@@ -8,7 +8,7 @@ Instead of building and maintaining server code (e.g., with FastAPI or Flask), y
 
 ## 📦 Install
 ```bash
-pip install python-serve
+pip install snapserve
 ```
 
 ## 🚀 Quick Start
@@ -24,7 +24,7 @@ def subtract(a: float, b: float) -> float:
     return a - b
 ```
 ```bash
-fastserve serve calculator:add,subtract
+snapserve serve calculator:add,subtract
 ```
 ```
 🌐 SnapServe is live:

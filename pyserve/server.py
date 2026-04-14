@@ -1,4 +1,5 @@
 import os
+import uuid
 import time
 import json
 import atexit
@@ -116,7 +117,7 @@ def create_app(
         kwargs = payload.get("kwargs", {})
         # Instantiate class
         obj = attribute.attr(*args, **kwargs)
-        obj_id = str(id(obj))
+        obj_id = uuid.uuid4().hex
         # Create new attribute for the object instance
         attributes[obj_id] = Attribute(obj)
         return obj_id

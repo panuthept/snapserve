@@ -47,7 +47,7 @@ print(subtract(5, 3)) # → 2
 PyServe supports multiple Python abstractions with a unified interface.
 
 ### 🔹 Serve Classes
-Serve a class definition. Each call creates a new instance on the server.
+Serve a class definition. Each call creates a new isolated instance on the server.
 
 ```python
 # calculator_class.py
@@ -108,9 +108,9 @@ PyServe provides flexible runtime configuration via CLI flags:
 
 ```bash
 pyserve serve calculator:add,subtract \
---host 0.0.0.0 \           # Bind address (default: localhost)
+--host localhost \         # Bind address (default: localhost)
 --port 8080 \              # Port (default: 8000)
---workers 4 \              # Worker processes (default: 2 × CPU cores)
+--workers 4 \              # Worker threads (default: 2 × CPU cores)
 --max-concurrency 100 \    # Max concurrent requests
 --timeout 30 \             # Request timeout (seconds)
 --cachable \               # Enable result caching

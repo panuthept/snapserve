@@ -1,10 +1,10 @@
-# PyServe
+# SnapServe
 
 > Turn your Python functions, classes, and objects into callable services instantly.
 
-**PyServe** is a lightweight framework that exposes your Python code as a local service with a single command. It lets you serve functions, classes, or stateful objects without writing any API boilerplate, and interact with them through a simple Python client.
+**SnapServe** is a lightweight framework that exposes your Python code as a local service with a single command. It lets you serve functions, classes, or stateful objects without writing any API boilerplate, and interact with them through a simple Python client.
 
-Instead of building and maintaining server code (e.g., with FastAPI or Flask), you focus on your application logic, PyServe handles the serving layer and execution for you.
+Instead of building and maintaining server code (e.g., with FastAPI or Flask), you focus on your application logic, SnapServe handles the serving layer and execution for you.
 
 ## 📦 Install
 ```bash
@@ -24,10 +24,10 @@ def subtract(a: float, b: float) -> float:
     return a - b
 ```
 ```bash
-pyserve serve calculator:add,subtract
+fastserve serve calculator:add,subtract
 ```
 ```
-🌐 PyServe is live:
+🌐 SnapServe is live:
 - http://localhost:8000/add (function)
 - http://localhost:8000/subtract (function)
 ```
@@ -35,7 +35,7 @@ pyserve serve calculator:add,subtract
 Call them from Python:
 
 ```python
-from pyserve import remote
+from snapserve import remote
 
 add = remote("add")
 subtract = remote("subtract")
@@ -44,7 +44,7 @@ print(add(5, 3))      # → 8
 print(subtract(5, 3)) # → 2
 ```
 
-PyServe supports multiple Python abstractions with a unified interface.
+SnapServe supports multiple Python abstractions with a unified interface.
 
 ### 🔹 Serve Classes
 Serve a class definition. Each call creates a new isolated instance on the server.
@@ -59,10 +59,10 @@ class Calculator:
         return a - b
 ```
 ```bash
-pyserve serve calculator_class:Calculator
+snapserve serve calculator_class:Calculator
 ```
 ```python
-from pyserve import remote
+from snapserve import remote
 
 Calculator = remote("Calculator")
 
@@ -91,10 +91,10 @@ class Calculator:
 calc = Calculator()
 ```
 ```bash
-pyserve serve calculator_class:calc
+snapserve serve calculator_class:calc
 ```
 ```python
-from pyserve import remote
+from snapserve import remote
 
 calc = remote("calc")
 print(calc.add(5, 3))      # → 8
@@ -104,10 +104,10 @@ print(calc.last_result)    # → 2
 ```
 
 ## 🔧 Configuration
-PyServe provides flexible runtime configuration via CLI flags:
+snapserve provides flexible runtime configuration via CLI flags:
 
 ```bash
-pyserve serve calculator:add,subtract \
+snapserve serve calculator:add,subtract \
 --host localhost \         # Bind address (default: localhost)
 --port 8080 \              # Port (default: 8000)
 --workers 4 \              # Worker threads (default: 2 × CPU cores)

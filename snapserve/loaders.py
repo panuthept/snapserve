@@ -1,5 +1,5 @@
-from pyserve.dataclasses import Attribute
-from pyserve.utils.loaders import load_module
+from snapserve.dataclasses import Attribute
+from snapserve.utils.loaders import load_module
 
 
 def load_attributes(module_path: str) -> dict[str, Attribute]:

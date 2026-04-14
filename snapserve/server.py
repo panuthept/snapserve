@@ -8,7 +8,7 @@ import asyncio
 import threading
 import contextlib
 from typing import Any
-from pyserve.dataclasses import Attribute
+from snapserve.dataclasses import Attribute
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import Request, FastAPI, HTTPException
 

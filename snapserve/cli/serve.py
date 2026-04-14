@@ -1,8 +1,8 @@
 import typer
 from typing import Annotated
-from pyserve.server import Server
-from pyserve.dataclasses import Attribute
-from pyserve.loaders import load_attributes
+from snapserve.server import Server
+from snapserve.dataclasses import Attribute
+from snapserve.loaders import load_attributes
 
 
 serve_app = typer.Typer()

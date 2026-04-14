@@ -1,7 +1,7 @@
 import inspect
 from typing import Any
 from dataclasses import dataclass
-from pyserve.utils.inspect import get_attr_type
+from snapserve.utils.inspect import get_attr_type
 
 
 @dataclass

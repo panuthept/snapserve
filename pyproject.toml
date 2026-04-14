@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "python-serve"
-version = "1.0.1"
+name = "snapserve"
+version = "1.0.0"
 readme = "README.md"
 requires-python = ">=3.14"
 license = "Apache-2.0"
@@ -22,14 +22,14 @@ dependencies = [
 dev = ["pytest>=6.0", "tqdm"]
 
 [project.urls]
-Homepage = "https://github.com/panuthept/python-serve"
+Homepage = "https://github.com/panuthept/snapserve"
 
 [tool.setuptools]
 package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["pyserve*"]
+include = ["snapserve*"]
 
 [project.scripts]
-pyserve = "pyserve.cli.main:app"
+snapserve = "snapserve.cli.main:app"

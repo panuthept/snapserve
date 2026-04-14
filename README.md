@@ -27,11 +27,9 @@ def subtract(a: float, b: float) -> float:
 pyserve serve calculator:add,subtract
 ```
 ```
-🌐 Service running at: http://localhost:8000
-
-Available functions:
-- add(a: float, b: float) -> float
-- subtract(a: float, b: float) -> float
+🌐 PyServe is live:
+- http://localhost:8000/add (function)
+- http://localhost:8000/subtract (function)
 ```
 
 Call them from Python:

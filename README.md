@@ -113,6 +113,50 @@ snapserve serve calculator:add,subtract \
 --workers 4 \              # Worker threads (default: 2 × CPU cores)
 --max-concurrency 100 \    # Max concurrent requests
 --timeout 30 \             # Request timeout (seconds)
---cachable \               # Enable result caching
---cache-size 10000         # Cache capacity
+--allow-cache \            # Enable result caching
+--cache-size 10000 \       # Cache capacity
+--daemon                   # Run as a background daemon
+```
+
+## 🛠️ CLI Commands
+
+Serve Python functions, classes, and objects as an API.
+```
+Usage: snapserve serve [OPTIONS] MODULE_PATH
+Arguments:
+  MODULE_PATH  The module path to serve, in the format 'module_path:variable_name'.
+Options:
+  --host STRING           The host to bind the server to. [default: localhost]
+  --port INTEGER          The port to bind the server to. [default: 8000]
+  --workers INTEGER       The number of worker threads to handle requests. [default: 2 × CPU cores]
+  --max-concurrency INTEGER  The maximum number of concurrent requests the server can handle. [default: 100]
+  --timeout INTEGER       The request timeout in seconds. [default: 30]
+  --allow-cache           Enable caching of function results to improve performance for repeated calls with the same arguments.
+  --cache-size INTEGER    The maximum number of entries to store in the cache. [default: 10000]
+  --daemon                Run the server as a background daemon process.
+```
+
+List all running snapserve servers.
+```
+Usage: snapserve ps
+```
+
+Stop a running snapserve server.
+```
+Usage: snapserve stop [OPTIONS] SERVER_ID
+Arguments:
+  SERVER_ID  The ID of the server to stop.
+Options:
+  --all                   Stop all running servers.
+  --delete                Delete the server after stopping it.
+```
+
+Start a snapserve server.
+```
+Usage: snapserve start [OPTIONS] SERVER_ID
+Arguments:
+  SERVER_ID  The ID of the server to start.
+Options:
+  --host STRING           The host to bind the server to.
+  --port INTEGER          The port to bind the server to.
 ```

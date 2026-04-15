@@ -95,8 +95,6 @@ class Server:
             print("✅ Shutdown complete")
         atexit.register(shutdown)
 
-        # while thread.is_alive():
-        #     thread.join(timeout=1)
         thread.join()
 
 def create_app(

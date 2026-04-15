@@ -20,6 +20,9 @@ def stop_command(
             stop_command(server_id=server_id)
         return
     
+    if server_id is None:
+        raise ValueError("Please specify a server ID to stop, or use --all to stop all servers.")
+
     pid_file = PID_DIR / f"{server_id}.pid"
     if not pid_file.exists():
         print(f"Server {server_id} is not running")

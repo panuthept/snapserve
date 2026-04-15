@@ -2,6 +2,7 @@ import os
 import json
 import uuid
 import typer
+import logging
 import subprocess
 from typing import Annotated
 from snapserve.server import Server
@@ -20,8 +21,9 @@ def serve_command(
     workers: Annotated[int, typer.Option("--workers", "-w", help="The number of worker processes to use.")] = None,
     max_concurrency: Annotated[int, typer.Option("--max-concurrency", "-m", help="The maximum number of concurrent requests to allow.")] = None,
     timeout: Annotated[int, typer.Option("--timeout", "-t", help="The timeout for requests in seconds.")] = None,
-    cachable: Annotated[bool, typer.Option("--cacheable", "-c", is_flag=True, help="Whether to enable caching for the served application.")] = False,
+    allow_cache: Annotated[bool, typer.Option("--allow-cache", "-c", is_flag=True, help="Whether to enable caching for the served application.")] = False,
     cache_size: Annotated[int, typer.Option("--cache-size", help="The maximum size of the cache.")] = 1024,
+    logging_path: Annotated[str, typer.Option("--logging-path", help="The path to the logging.")] = None,
     daemon: Annotated[bool, typer.Option("--daemon", "-d", is_flag=True, help="Whether to run the server in daemon mode.")] = False,
 ):
     """
@@ -31,12 +33,18 @@ def serve_command(
         raise RuntimeError(f"❌ Port {port} is already in use. Please choose a different port or stop the server using it.")
 
     if daemon:
+        server_id = uuid.uuid4().hex
+        pid_file = PID_DIR / f"{server_id}.pid"
+        out_file = LOG_DIR / f"{server_id}.out"
+        config_file = CONFIG_DIR / f"{server_id}.json"
+
         cmd = [
             "snapserve",
             "serve",
             module_path,
             "--host", host,
             "--port", str(port),
+            "--logging-path", out_file
         ]
         if workers is not None:
             cmd.extend(["--workers", str(workers)])
@@ -44,45 +52,44 @@ def serve_command(
             cmd.extend(["--max-concurrency", str(max_concurrency)])
         if timeout is not None:
             cmd.extend(["--timeout", str(timeout)])
-        if cachable:
-            cmd.append("--cacheable")
+        if allow_cache:
+            cmd.append("--allow-cache")
         if cache_size != 1024:
             cmd.extend(["--cache-size", str(cache_size)])
         
-        server_id = uuid.uuid4().hex
-        pid_file = PID_DIR / f"{server_id}.pid"
-        out_file = LOG_DIR / f"{server_id}.out"
-        err_file = LOG_DIR / f"{server_id}.err"
-        config_file = CONFIG_DIR / f"{server_id}.json"
         json.dump({
+            "working_dir": os.getcwd(),
             "module_path": module_path,
             "host": host,
             "port": port,
             "workers": workers,
             "max_concurrency": max_concurrency,
             "timeout": timeout,
-            "cachable": cachable,
+            "allow_cache": allow_cache,
             "cache_size": cache_size,
         }, config_file.open("w"), indent=4)
-
-        out_fd = os.open(out_file, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
-        err_fd = os.open(err_file, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
 
         process = subprocess.Popen(
             cmd, 
             stdin=subprocess.DEVNULL,
-            stdout=out_fd, 
-            stderr=err_fd,
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE,
             start_new_session=True,
             close_fds=True,
             cwd=os.getcwd(),
         )
-        os.close(out_fd)
-        os.close(err_fd)
+
         pid_file.write_text(str(process.pid))
-        print(f"Server {server_id} started in daemon mode on: http://{host}:{port}")
+        print(f"Started {server_id}")
         return
-    
+
+    logging.basicConfig(
+        filename=logging_path if logging_path else None,
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+
     attributes: dict[str, Attribute] = load_attributes(module_path)
     server = Server(
         attributes=attributes,
@@ -91,7 +98,7 @@ def serve_command(
         workers=workers,
         max_concurrency=max_concurrency,
         timeout=timeout,
-        cachable=cachable,
+        allow_cache=allow_cache,
         cache_size=cache_size,
     )
     server.run()

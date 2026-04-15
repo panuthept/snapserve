@@ -11,6 +11,7 @@ from typing import Any
 from snapserve.dataclasses import Attribute
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import Request, FastAPI, HTTPException
+from snapserve.utils.connections import wait_for_connection
 
 
 class CacheManager:
@@ -71,6 +72,9 @@ class Server:
         thread = threading.Thread(target=server.run, daemon=True)
         thread.start()
 
+        if not wait_for_connection(f"http://{self.host}:{self.port}"):
+            raise RuntimeError(f"❌ Failed to start server at port {self.port}")
+
         print("🌐 SnapServe is live:")
         for attr_name, attribute in self.attributes.items():
             if attribute.type == "function" or attribute.type == "class":
@@ -91,8 +95,9 @@ class Server:
             print("✅ Shutdown complete")
         atexit.register(shutdown)
 
-        while thread.is_alive():
-            thread.join(timeout=1)
+        # while thread.is_alive():
+        #     thread.join(timeout=1)
+        thread.join()
 
 def create_app(
     attributes: dict[str, Attribute],

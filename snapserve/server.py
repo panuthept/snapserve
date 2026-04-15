@@ -3,6 +3,7 @@ import uuid
 import time
 import json
 import atexit
+import logging
 import uvicorn
 import asyncio
 import threading
@@ -47,10 +48,12 @@ class Server:
         timeout: int = None,
         cachable: bool = False,
         cache_size: int = 1024,
+        logger: logging.Logger = None,
     ):
         self.attributes = attributes
         self.host = host
         self.port = port
+        self.logger = logger or logging.getLogger("Server")
 
         self.app = create_app(
             attributes=self.attributes,
@@ -59,6 +62,7 @@ class Server:
             timeout=timeout,
             cachable=cachable,
             cache_size=cache_size,
+            logger=self.logger,
         )
 
     def run(self):
@@ -75,15 +79,12 @@ class Server:
         if not wait_for_connection(f"http://{self.host}:{self.port}"):
             raise RuntimeError(f"❌ Failed to start server at port {self.port}")
 
-        print("🌐 SnapServe is live:")
+        self.logger.info(f"Server is running at: http://{self.host}:{self.port}")
         for attr_name, attribute in self.attributes.items():
             if attribute.type == "function" or attribute.type == "class":
-                print(f"({attribute.type}) {attr_name}{attribute.signature}")
+                self.logger.info(f"({attribute.type}) {attr_name}{attribute.signature}")
             else:
-                print(f"({attribute.type}) {attr_name}: {attribute.signature}")
-        
-        print()
-        print("🛑 Press Ctrl+C to stop")
+                self.logger.info(f"({attribute.type}) {attr_name}: {attribute.signature}")
         # --------------------------------------------------------------------------------------
         # Shutdown handling
         # --------------------------------------------------------------------------------------
@@ -92,7 +93,7 @@ class Server:
                 return
             server.should_exit = True
             thread.join()
-            print("✅ Shutdown complete")
+            self.logger.info("Server shutdown complete")
         atexit.register(shutdown)
 
         thread.join()
@@ -104,11 +105,13 @@ def create_app(
     timeout: int = None,
     cachable: bool = False,
     cache_size: int = 1024,
+    logger: logging.Logger = None,
 ):
     app = FastAPI()
     thread_executor = ThreadPoolExecutor(max_workers=workers or (2 * os.cpu_count() + 1))
     semaphore = asyncio.Semaphore(max_concurrency) if max_concurrency else contextlib.nullcontext()
     cache_manager = CacheManager(max_size=cache_size) if cachable else None
+    logger = logger or logging.getLogger("create_app")
     # ------------------------------------------------------------------------------------------
     # Attribute handlers
     # ------------------------------------------------------------------------------------------
@@ -185,6 +188,7 @@ def create_app(
     # ------------------------------------------------------------------------------------------
     @app.get("/")
     async def root():
+        logger.info("Received request at root endpoint")
         return {
             "status": "online",
             "workload": thread_executor._work_queue.qsize(),
@@ -202,6 +206,7 @@ def create_app(
     for attr_name in attributes.keys():
         @app.get(f"/{attr_name}")
         async def get_attribute(attr_name=attr_name):
+            logger.info(f"Received GET request for attribute '{attr_name}'")
             attribute = attributes[attr_name]
             return {
                 "name": attr_name,
@@ -213,6 +218,8 @@ def create_app(
 
         @app.post(f"/{attr_name}")
         async def call_attribute(request: Request, attr_name=attr_name):
+            logger.info(f"Received POST request for attribute '{attr_name}'")
+            start_time = time.monotonic()
             try:
                 payload = await request.json()
             except Exception:
@@ -223,16 +230,21 @@ def create_app(
                     result = await asyncio.wait_for(coro, timeout=timeout)
                 else:
                     result = await coro
+                logger.info(f"Request for attribute '{attr_name}' completed in {time.monotonic() - start_time:.2f} seconds")
                 return {"result": result}
             except asyncio.TimeoutError:
+                logger.error(f"Request for attribute '{attr_name}' timed out after {timeout} seconds")
                 raise HTTPException(status_code=504, detail="Request timed out.")
             except HTTPException:
+                logger.error(f"HTTPException occurred while handling request for attribute '{attr_name}'")
                 raise
             except Exception as e:
+                logger.error(f"Error occurred while handling request for attribute '{attr_name}': {e}")
                 raise HTTPException(status_code=500, detail=str(e))
             
         @app.options(f"/{attr_name}")
         async def options_attribute(attr_name=attr_name):
+            logger.info(f"Received OPTIONS request for attribute '{attr_name}'")
             return {"allowed_methods": ["GET", "POST", "OPTIONS"]}
     # ------------------------------------------------------------------------------------------
     # Shutdown handling

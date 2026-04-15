@@ -1,17 +1,25 @@
 import os
 import typer
 from typing import Annotated
-from snapserve.global_variables import PID_DIR
+from snapserve.cli.ps import ps_command
+from snapserve.consts import PID_DIR, CONFIG_DIR
 
 
 stop_app = typer.Typer()
 @stop_app.command("stop")
 def stop_command(
-    server_id: Annotated[str, typer.Argument(..., help="The ID of the server to stop.")],
+    server_id: Annotated[str, typer.Argument(help="The ID of the server to stop.")] = None,
+    all: Annotated[bool, typer.Option("--all", "-a", is_flag=True, help="Stop all running servers.")] = False,
 ):
     """
     Stop a running snapserve server.
     """
+    if all:
+        running_servers = ps_command()
+        for server_id in running_servers.keys():
+            stop_command(server_id=server_id)
+        return
+    
     pid_file = PID_DIR / f"{server_id}.pid"
     if not pid_file.exists():
         print(f"Server {server_id} is not running")
@@ -20,7 +28,10 @@ def stop_command(
     pid = int(pid_file.read_text())
     try:
         os.kill(pid, 15)  # Send SIGTERM
-        print(f"Server {server_id} stopped")
-    except ProcessLookupError:
-        print(f"Server {server_id} is not running")
+        print(f"Stopped {server_id}")
+    except ProcessLookupError:        
+        pass
     pid_file.unlink()
+    config_file = CONFIG_DIR / f"{server_id}.json"
+    if config_file.exists():
+        config_file.unlink()

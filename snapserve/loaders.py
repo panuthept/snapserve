@@ -2,8 +2,8 @@ from snapserve.dataclasses import Attribute
 from snapserve.utils.loaders import load_module
 
 
-def load_attributes(module_path: str) -> dict[str, Attribute]:
-    module = load_module(module_path)
+def load_attributes(module_path: str, working_dir: str = None) -> dict[str, Attribute]:
+    module = load_module(module_path, working_dir=working_dir)
     
     attributes = {}
     for attr_name in module_path.split(":")[1].split(","):

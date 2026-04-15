@@ -3,6 +3,7 @@ import uuid
 import time
 import json
 import atexit
+import logging
 import uvicorn
 import asyncio
 import threading
@@ -11,6 +12,7 @@ from typing import Any
 from snapserve.dataclasses import Attribute
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import Request, FastAPI, HTTPException
+from snapserve.utils.connections import wait_for_connection
 
 
 class CacheManager:
@@ -44,9 +46,11 @@ class Server:
         workers: int = None,
         max_concurrency: int = None,
         timeout: int = None,
-        cachable: bool = False,
+        allow_cache: bool = False,
         cache_size: int = 1024,
     ):
+        logging.info(f"Configuring server with host={host}, port={port}, workers={workers}, max_concurrency={max_concurrency}, timeout={timeout}, allow_cache={allow_cache}, cache_size={cache_size}")
+
         self.attributes = attributes
         self.host = host
         self.port = port
@@ -56,11 +60,13 @@ class Server:
             workers=workers,
             max_concurrency=max_concurrency,
             timeout=timeout,
-            cachable=cachable,
+            allow_cache=allow_cache,
             cache_size=cache_size,
         )
 
     def run(self):
+        logging.info("Starting server...")
+
         config = uvicorn.Config(
             self.app,
             host=self.host,
@@ -71,15 +77,15 @@ class Server:
         thread = threading.Thread(target=server.run, daemon=True)
         thread.start()
 
-        print("🌐 SnapServe is live:")
+        if not wait_for_connection(f"http://{self.host}:{self.port}"):
+            raise RuntimeError(f"❌ Failed to start server at port {self.port}")
+
+        logging.info(f"Server is running at: http://{self.host}:{self.port}")
         for attr_name, attribute in self.attributes.items():
             if attribute.type == "function" or attribute.type == "class":
-                print(f"({attribute.type}) {attr_name}{attribute.signature}")
+                logging.info(f"({attribute.type}) {attr_name}{attribute.signature}")
             else:
-                print(f"({attribute.type}) {attr_name}: {attribute.signature}")
-        
-        print()
-        print("🛑 Press Ctrl+C to stop")
+                logging.info(f"({attribute.type}) {attr_name}: {attribute.signature}")
         # --------------------------------------------------------------------------------------
         # Shutdown handling
         # --------------------------------------------------------------------------------------
@@ -88,24 +94,24 @@ class Server:
                 return
             server.should_exit = True
             thread.join()
-            print("✅ Shutdown complete")
+            logging.info("Server shutdown complete")
         atexit.register(shutdown)
 
-        while thread.is_alive():
-            thread.join(timeout=1)
+        thread.join()
 
 def create_app(
     attributes: dict[str, Attribute],
     workers: int = None,
     max_concurrency: int = None,
     timeout: int = None,
-    cachable: bool = False,
+    allow_cache: bool = False,
     cache_size: int = 1024,
 ):
     app = FastAPI()
     thread_executor = ThreadPoolExecutor(max_workers=workers or (2 * os.cpu_count() + 1))
     semaphore = asyncio.Semaphore(max_concurrency) if max_concurrency else contextlib.nullcontext()
-    cache_manager = CacheManager(max_size=cache_size) if cachable else None
+    cache_manager = CacheManager(max_size=cache_size) if allow_cache else None
+    
     # ------------------------------------------------------------------------------------------
     # Attribute handlers
     # ------------------------------------------------------------------------------------------
@@ -163,12 +169,6 @@ def create_app(
 
     async def handle_request(attr_name: str, payload: dict) -> Any:
         loop = asyncio.get_running_loop()
-        # Use cache if enabled
-        if cache_manager:
-            cache_key = f"{attr_name}:{json.dumps(payload, sort_keys=True)}"
-            cached_result = cache_manager.get(cache_key)
-            if cached_result is not None:
-                return cached_result
         # Execute the attribute in a thread to avoid blocking the event loop
         async with semaphore:
             return await loop.run_in_executor(
@@ -182,6 +182,8 @@ def create_app(
     # ------------------------------------------------------------------------------------------
     @app.get("/")
     async def root():
+        request_id = uuid.uuid4().hex
+        logging.info(f"Request {request_id}: Received GET request at '/' endpoint")
         return {
             "status": "online",
             "workload": thread_executor._work_queue.qsize(),
@@ -199,6 +201,8 @@ def create_app(
     for attr_name in attributes.keys():
         @app.get(f"/{attr_name}")
         async def get_attribute(attr_name=attr_name):
+            request_id = uuid.uuid4().hex
+            logging.info(f"Request {request_id}: Received GET request at '/{attr_name}' endpoint")
             attribute = attributes[attr_name]
             return {
                 "name": attr_name,
@@ -210,26 +214,45 @@ def create_app(
 
         @app.post(f"/{attr_name}")
         async def call_attribute(request: Request, attr_name=attr_name):
+            request_id = uuid.uuid4().hex
+            logging.info(f"Request {request_id}: Received POST request at '/{attr_name}' endpoint with payload: {await request.json()}")
+            
+            start_time = time.monotonic()
             try:
                 payload = await request.json()
             except Exception:
                 raise HTTPException(status_code=400, detail="Invalid JSON payload.")
+            
+            # Use cache if enabled
+            if cache_manager:
+                cache_key = f"{attr_name}:{json.dumps(payload, sort_keys=True)}"
+                cached_result = cache_manager.get(cache_key)
+                if cached_result is not None:
+                    logging.info(f"Request {request_id}: Completed POST request for '/{attr_name}' in {time.monotonic() - start_time:.2f} seconds (Cache Hit)")
+                    return {"result": cached_result}
+            # Execute the attribute and return the result
             try:
                 coro = handle_request(attr_name, payload)
                 if timeout:
                     result = await asyncio.wait_for(coro, timeout=timeout)
                 else:
                     result = await coro
+                logging.info(f"Request {request_id}: Completed POST request for '/{attr_name}' in {time.monotonic() - start_time:.2f} seconds")
                 return {"result": result}
             except asyncio.TimeoutError:
+                logging.error(f"Request {request_id}: POST Request for '/{attr_name}' timed out after {timeout} seconds")
                 raise HTTPException(status_code=504, detail="Request timed out.")
             except HTTPException:
+                logging.error(f"Request {request_id}: HTTPException occurred while handling POST request for '/{attr_name}'")
                 raise
             except Exception as e:
+                logging.error(f"Request {request_id}: Error occurred while handling POST request for '/{attr_name}': {e}")
                 raise HTTPException(status_code=500, detail=str(e))
             
         @app.options(f"/{attr_name}")
         async def options_attribute(attr_name=attr_name):
+            request_id = uuid.uuid4().hex
+            logging.info(f"Request {request_id}: Received OPTIONS request at '/{attr_name}' endpoint")
             return {"allowed_methods": ["GET", "POST", "OPTIONS"]}
     # ------------------------------------------------------------------------------------------
     # Shutdown handling

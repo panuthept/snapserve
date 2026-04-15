@@ -2,18 +2,13 @@ import requests
 from functools import partial
 
 
-def validate_endpoint(endpoint: str, base_url: str = "http://localhost:8000"):
+def get_client(endpoint: str, base_url: str = "http://localhost:8000") -> "Client":
     url = f"{base_url}/{endpoint}"
     try:
-        response = requests.options(url)
+        response = requests.get(url)
         response.raise_for_status()
     except requests.RequestException as e:
         raise ValueError(f"Endpoint '{endpoint}' is not available at {base_url}") from e
-
-def get_client(endpoint: str, base_url: str = "http://localhost:8000") -> "Client":
-    url = f"{base_url}/{endpoint}"
-    response = requests.get(url)
-    response.raise_for_status()
     data = response.json()
     attr_type = data.get("type")
     if attr_type == "function":
@@ -31,7 +26,6 @@ def get_client(endpoint: str, base_url: str = "http://localhost:8000") -> "Clien
         raise ValueError(f"Unsupported attribute type: {attr_type}")
 
 def remote(endpoint: str, base_url: str = "http://localhost:8000") -> "Client":
-    validate_endpoint(endpoint, base_url)
     return get_client(endpoint, base_url)
 
 class Client:
@@ -99,7 +93,7 @@ class ClassClient(Client):
         response.raise_for_status()
         obj_id = response.json()["result"]
 
-        response = url = f"{self.base_url}/"
+        url = f"{self.base_url}/"
         response = requests.get(url)
         response.raise_for_status()
         attribute = response.json()["attributes"][obj_id]

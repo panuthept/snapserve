@@ -10,12 +10,13 @@ stop_app = typer.Typer()
 def stop_command(
     server_id: Annotated[str, typer.Argument(help="The ID of the server to stop.")] = None,
     all: Annotated[bool, typer.Option("--all", "-a", is_flag=True, help="Stop all running servers.")] = False,
+    delete: Annotated[bool, typer.Option("--delete", is_flag=True, help="Whether to delete the server config after stopping.")] = False,
 ):
     """
     Stop a running snapserve server.
     """
     if all:
-        running_servers = ps_command()
+        running_servers = ps_command(silent=True)
         for server_id in running_servers.keys():
             stop_command(server_id=server_id)
         return
@@ -34,7 +35,9 @@ def stop_command(
         print(f"Stopped {server_id}")
     except ProcessLookupError:        
         pass
-    pid_file.unlink()
-    config_file = CONFIG_DIR / f"{server_id}.json"
-    if config_file.exists():
-        config_file.unlink()
+    
+    if delete:
+        pid_file.unlink()
+        config_file = CONFIG_DIR / f"{server_id}.json"
+        if config_file.exists():
+            config_file.unlink()

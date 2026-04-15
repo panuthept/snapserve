@@ -24,16 +24,19 @@ def serve_command(
     allow_cache: Annotated[bool, typer.Option("--allow-cache", "-c", is_flag=True, help="Whether to enable caching for the served application.")] = False,
     cache_size: Annotated[int, typer.Option("--cache-size", help="The maximum size of the cache.")] = 1024,
     logging_path: Annotated[str, typer.Option("--logging-path", help="The path to the logging.")] = None,
+    working_dir: Annotated[str, typer.Option("--working-dir", help="The working directory to use when loading the module.")] = None,
+    server_id: Annotated[str, typer.Option("--server-id", help="The ID of the server to start (only used in daemon mode).")] = None,
     daemon: Annotated[bool, typer.Option("--daemon", "-d", is_flag=True, help="Whether to run the server in daemon mode.")] = False,
 ):
     """
     Serve Python functions, classes, and objects as an API.
     """
+    working_dir = working_dir or os.getcwd()
     if is_port_in_use(host, port):
         raise RuntimeError(f"❌ Port {port} is already in use. Please choose a different port or stop the server using it.")
 
     if daemon:
-        server_id = uuid.uuid4().hex
+        server_id = server_id or uuid.uuid4().hex
         pid_file = PID_DIR / f"{server_id}.pid"
         out_file = LOG_DIR / f"{server_id}.out"
         config_file = CONFIG_DIR / f"{server_id}.json"
@@ -44,7 +47,8 @@ def serve_command(
             module_path,
             "--host", host,
             "--port", str(port),
-            "--logging-path", out_file
+            "--logging-path", out_file,
+            "--working-dir", working_dir,
         ]
         if workers is not None:
             cmd.extend(["--workers", str(workers)])
@@ -58,7 +62,7 @@ def serve_command(
             cmd.extend(["--cache-size", str(cache_size)])
         
         json.dump({
-            "working_dir": os.getcwd(),
+            "working_dir": working_dir,
             "module_path": module_path,
             "host": host,
             "port": port,
@@ -90,7 +94,7 @@ def serve_command(
         datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-    attributes: dict[str, Attribute] = load_attributes(module_path)
+    attributes: dict[str, Attribute] = load_attributes(module_path, working_dir=working_dir)
     server = Server(
         attributes=attributes,
         host=host,

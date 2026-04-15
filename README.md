@@ -136,7 +136,7 @@ Options:
   --delete                Delete the server after stopping it.
 ```
 
-Start a snapserve server.
+Start a stopped snapserve server.
 ```
 Usage: snapserve start [OPTIONS] SERVER_ID
 Arguments:

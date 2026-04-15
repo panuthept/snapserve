@@ -103,21 +103,6 @@ print(calc.subtract(5, 3)) # → 2
 print(calc.last_result)    # → 2
 ```
 
-## 🔧 Configuration
-snapserve provides flexible runtime configuration via CLI flags:
-
-```bash
-snapserve serve calculator:add,subtract \
---host localhost \         # Bind address (default: localhost)
---port 8080 \              # Port (default: 8000)
---workers 4 \              # Worker threads (default: 2 × CPU cores)
---max-concurrency 100 \    # Max concurrent requests
---timeout 30 \             # Request timeout (seconds)
---allow-cache \            # Enable result caching
---cache-size 10000 \       # Cache capacity
---daemon                   # Run as a background daemon
-```
-
 ## 🛠️ CLI Commands
 
 Serve Python functions, classes, and objects as an API.

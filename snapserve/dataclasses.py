@@ -1,7 +1,6 @@
 import inspect
 from typing import Any
 from dataclasses import dataclass
-from snapserve.utils.inspect import get_attr_type
     
 
 @dataclass

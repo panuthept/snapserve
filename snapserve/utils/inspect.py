@@ -6,5 +6,9 @@ def get_attr_type(attr) -> str:
         return "function"
     elif inspect.isclass(attr):
         return "class"
-    else:
+    elif callable(attr):
+        return "method"
+    elif hasattr(attr, "__dict__"):
         return "object"
+    else:
+        return "variable"

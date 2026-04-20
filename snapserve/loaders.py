@@ -1,5 +1,5 @@
-from snapserve.dataclasses import Attribute
 from snapserve.utils.loaders import load_module
+from snapserve.dataclasses import Attribute, AutoAttribute
 
 
 def load_attributes(module_path: str, working_dir: str = None) -> dict[str, Attribute]:
@@ -11,6 +11,6 @@ def load_attributes(module_path: str, working_dir: str = None) -> dict[str, Attr
         if not hasattr(module, attr_name):
             raise AttributeError(f"Module '{module.__name__}' does not have an attribute named '{attr_name}'.")
         attr = getattr(module, attr_name)
-        attributes[attr_name] = Attribute(attr, attr_name)
+        attributes[attr_name] = AutoAttribute.from_attr(attr)
     
     return attributes

@@ -9,9 +9,10 @@ import asyncio
 import threading
 import contextlib
 from typing import Any
-from snapserve.dataclasses import Attribute
 from concurrent.futures import ThreadPoolExecutor
+from snapserve.utils.inspect import get_attr_type
 from fastapi import Request, FastAPI, HTTPException
+from snapserve.dataclasses import Attribute, AutoAttribute
 from snapserve.utils.connections import wait_for_connection
 
 
@@ -115,68 +116,37 @@ def create_app(
     # ------------------------------------------------------------------------------------------
     # Attribute handlers
     # ------------------------------------------------------------------------------------------
-    def execute_function(attribute: Attribute, payload: dict) -> Any:
+    def execute_attribute(payload: dict) -> Any:
         args = payload.get("args", [])
         kwargs = payload.get("kwargs", {})
-        # Run function
-        return attribute.attr(*args, **kwargs)
+        attr_name = payload.get("attr_name", attr_name)
 
-    def execute_class(attribute: Attribute, payload: dict) -> Any:
-        args = payload.get("args", [])
-        kwargs = payload.get("kwargs", {})
-        # Instantiate class
-        obj = attribute.attr(*args, **kwargs)
-        obj_id = uuid.uuid4().hex
-        # Create new attribute for the object instance
-        attributes[obj_id] = Attribute(obj)
-        return obj_id
-    
-    def execute_object(attribute: Attribute, payload: dict) -> Any:
-        args = payload.get("args", [])
-        kwargs = payload.get("kwargs", {})
-        method_or_attribute_name = payload["method_or_attribute_name"]
-        if method_or_attribute_name in attribute.methods:
-            method = getattr(attribute.attr, method_or_attribute_name)
-            return method(*args, **kwargs)
-        elif method_or_attribute_name in attribute.attributes:
-            attribute_value = getattr(attribute.attr, method_or_attribute_name)
-            return attribute_value
+        output = attributes[attr_name].call(*args, **kwargs)
+        output_type = get_attr_type(output)
+        if output_type == "variable":
+            result = {"value": output}
         else:
-            raise HTTPException(status_code=400, detail=f"Object does not have a method or attribute named '{method_or_attribute_name}'.")
-    
-    def execute_attribute(attr_name: str, payload: dict) -> Any:
-        if payload.get("id"):
-            obj_id = payload["id"]
-            if obj_id not in attributes:
-                raise HTTPException(status_code=400, detail=f"Object with id '{obj_id}' not found.")
-            attribute: Attribute = attributes[obj_id]
-        else:
-            attribute: Attribute = attributes[attr_name]
+            new_attr_name = f"{attr_name}_{uuid.uuid4().hex[:8]}"
+            attributes[new_attr_name] = AutoAttribute.from_attr(output)
+            result = {"new_attr_name": new_attr_name}
 
-        if attribute.type == "function":
-            result = execute_function(attribute, payload)
-        elif attribute.type == "class":
-            result = execute_class(attribute, payload)
-        else:
-            result = execute_object(attribute, payload)
-        
         # Update cache if enabled
         if cache_manager:
             with threading.Lock():
-                cache_key = f"{attr_name}:{json.dumps(payload, sort_keys=True)}"
+                cache_key = json.dumps(payload, sort_keys=True)
                 cache_manager.set(cache_key, result)
         return result
 
-    async def handle_request(attr_name: str, payload: dict) -> Any:
+    async def handle_request(payload: dict) -> Any:
         loop = asyncio.get_running_loop()
         # Execute the attribute in a thread to avoid blocking the event loop
         async with semaphore:
             return await loop.run_in_executor(
                 thread_executor, 
                 execute_attribute,
-                attr_name,
                 payload
             )
+        
     # ------------------------------------------------------------------------------------------
     # Endpoints
     # ------------------------------------------------------------------------------------------
@@ -187,73 +157,65 @@ def create_app(
         return {
             "status": "online",
             "workload": thread_executor._work_queue.qsize(),
-            "message": "Welcome to PyServe!",
-            "attributes": {
-                attr_name: {
-                    "type": attribute.type,
-                    "signature": attribute.signature,
-                    "methods": attribute.methods,
-                    "attributes": attribute.attributes,
-                } for attr_name, attribute in attributes.items()
-            }
+            "attributes": list(attributes.keys()),
         }
     
-    for attr_name in attributes.keys():
-        @app.get(f"/{attr_name}")
-        async def get_attribute(attr_name=attr_name):
-            request_id = uuid.uuid4().hex
-            logging.info(f"Request {request_id}: Received GET request at '/{attr_name}' endpoint")
-            attribute = attributes[attr_name]
-            return {
-                "name": attr_name,
-                "type": attribute.type,
-                "signature": attribute.signature,
-                "methods": attribute.methods,
-                "attributes": attribute.attributes,
-            }
+    @app.get("/attribute")
+    async def get_attribute(request: Request):
+        request_id = uuid.uuid4().hex
+        try:
+            payload = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON payload.")
+        logging.info(f"Request {request_id}: Received GET request at '/attribute' endpoint with payload: {payload}")
+        
+        if "attr_name" not in payload:
+            raise HTTPException(status_code=400, detail="Missing 'attr_name' field in payload.")
+        
+        attr_name = payload.get("attr_name")
+        if attr_name not in attributes:
+            raise HTTPException(status_code=400, detail=f"Attribute '{attr_name}' not found.")
+        
+        return attributes[attr_name].to_dict()
+    
+    @app.post("/attribute")
+    async def post_attribute(request: Request):
+        request_id = uuid.uuid4().hex
+        try:
+            payload = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON payload.")
+        logging.info(f"Request {request_id}: Received POST request at '/attribute' endpoint with payload: {payload}")
 
-        @app.post(f"/{attr_name}")
-        async def call_attribute(request: Request, attr_name=attr_name):
-            request_id = uuid.uuid4().hex
-            logging.info(f"Request {request_id}: Received POST request at '/{attr_name}' endpoint with payload: {await request.json()}")
-            
-            start_time = time.monotonic()
-            try:
-                payload = await request.json()
-            except Exception:
-                raise HTTPException(status_code=400, detail="Invalid JSON payload.")
-            
-            # Use cache if enabled
-            if cache_manager:
-                cache_key = f"{attr_name}:{json.dumps(payload, sort_keys=True)}"
-                cached_result = cache_manager.get(cache_key)
-                if cached_result is not None:
-                    logging.info(f"Request {request_id}: Completed POST request for '/{attr_name}' in {time.monotonic() - start_time:.2f} seconds (Cache Hit)")
-                    return {"result": cached_result}
-            # Execute the attribute and return the result
-            try:
-                coro = handle_request(attr_name, payload)
-                if timeout:
-                    result = await asyncio.wait_for(coro, timeout=timeout)
-                else:
-                    result = await coro
-                logging.info(f"Request {request_id}: Completed POST request for '/{attr_name}' in {time.monotonic() - start_time:.2f} seconds")
-                return {"result": result}
-            except asyncio.TimeoutError:
-                logging.error(f"Request {request_id}: POST Request for '/{attr_name}' timed out after {timeout} seconds")
-                raise HTTPException(status_code=504, detail="Request timed out.")
-            except HTTPException:
-                logging.error(f"Request {request_id}: HTTPException occurred while handling POST request for '/{attr_name}'")
-                raise
-            except Exception as e:
-                logging.error(f"Request {request_id}: Error occurred while handling POST request for '/{attr_name}': {e}")
-                raise HTTPException(status_code=500, detail=str(e))
-            
-        @app.options(f"/{attr_name}")
-        async def options_attribute(attr_name=attr_name):
-            request_id = uuid.uuid4().hex
-            logging.info(f"Request {request_id}: Received OPTIONS request at '/{attr_name}' endpoint")
-            return {"allowed_methods": ["GET", "POST", "OPTIONS"]}
+        start_time = time.monotonic()
+
+        # Use cache if enabled
+        if cache_manager:
+            cache_key = json.dumps(payload, sort_keys=True)
+            cached_result = cache_manager.get(cache_key)
+            if cached_result is not None:
+                logging.info(f"Request {request_id}: Completed POST request for '/attribute' in {time.monotonic() - start_time:.2f} seconds (Cache Hit)")
+                return cached_result
+        
+        # Execute the attribute and return the result
+        try:
+            coro = handle_request(payload)
+            if timeout:
+                result = await asyncio.wait_for(coro, timeout=timeout)
+            else:
+                result = await coro
+            logging.info(f"Request {request_id}: Completed POST request for '/attribute' in {time.monotonic() - start_time:.2f} seconds")
+            return result
+        except asyncio.TimeoutError:
+            logging.error(f"Request {request_id}: POST Request for '/attribute' timed out after {timeout} seconds")
+            raise HTTPException(status_code=504, detail="Request timed out.")
+        except HTTPException:
+            logging.error(f"Request {request_id}: HTTPException occurred while handling POST request for '/attribute'")
+            raise
+        except Exception as e:
+            logging.error(f"Request {request_id}: Error occurred while handling POST request for '/attribute': {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        
     # ------------------------------------------------------------------------------------------
     # Shutdown handling
     # ------------------------------------------------------------------------------------------

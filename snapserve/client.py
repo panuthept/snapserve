@@ -1,45 +1,59 @@
 import requests
+from typing import Any
 from functools import partial
 
 
-def get_client(endpoint: str, base_url: str = "http://localhost:8000") -> "Client":
-    url = f"{base_url}/{endpoint}"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        raise ValueError(f"Endpoint '{endpoint}' is not available at {base_url}") from e
+def remote(name: str, base_url: str = "http://localhost:8000") -> Any:
+    url = f"{base_url}/attribute"
+    payload = {"attr_name": name}
+
+    response = requests.get(url, json=payload)
+    response.raise_for_status()
     data = response.json()
-    attr_type = data.get("type")
-    if attr_type == "function":
-        return FunctionClient(endpoint, base_url)
-    elif attr_type == "class":
-        return ClassClient(endpoint, base_url)
-    elif attr_type == "object":
+
+    if data["type"] == "variable":
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        return response.json()["value"]
+    elif data["type"] == "function":
+        return FunctionClient(name, base_url)
+    elif data["type"] == "class":
+        return ClassClient(name, base_url)
+    elif data["type"] == "object":
         return ObjectClient(
-            endpoint=endpoint, 
+            name=name, 
             base_url=base_url, 
             methods=data.get("methods", []), 
-            attributes=data.get("attributes", [])
+            properties=data.get("properties", [])
         )
-    else:
-        raise ValueError(f"Unsupported attribute type: {attr_type}")
-
-def remote(endpoint: str, base_url: str = "http://localhost:8000") -> "Client":
-    return get_client(endpoint, base_url)
 
 class Client:
-    def __init__(self, endpoint: str, base_url: str = "http://localhost:8000"):
+    def __init__(self, name: str, base_url: str = "http://localhost:8000"):
+        self.name = name
         self.base_url = base_url
-        self.endpoint = endpoint
     
 class FunctionClient(Client):
     def __call__(self, *args, **kwargs):
-        payload = {"args": args, "kwargs": kwargs}
-        url = f"{self.base_url}/{self.endpoint}"
+        url = f"{self.base_url}/attribute"
+        payload = {"attr_name": self.name, "args": args, "kwargs": kwargs}
+
         response = requests.post(url, json=payload)
         response.raise_for_status()
-        return response.json()["result"]
+
+        if "value" in response.json():
+            return response.json()["value"]
+        else:
+            return remote(response.json()["new_attr_name"], base_url=self.base_url)
+        
+class ClassClient(Client):
+    def __call__(self, *args, **kwargs):
+        url = f"{self.base_url}/attribute"
+        payload = {"attr_name": self.name, "args": args, "kwargs": kwargs}
+
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        
+        return remote(response.json()["new_attr_name"], base_url=self.base_url)
 
 class ObjectClient(Client):
     def __init__(
@@ -47,12 +61,12 @@ class ObjectClient(Client):
         endpoint: str, 
         base_url: str = "http://localhost:8000",
         methods: list[str] = None,
-        attributes: list[str] = None,
+        properties: list[str] = None,
         obj_id: str = None
     ):
         super().__init__(endpoint, base_url)
         self.methods = methods or []
-        self.attributes = attributes or []
+        self.properties = properties or []
         self.obj_id = obj_id
 
     def __call__(self, *args, **kwargs):
@@ -84,23 +98,3 @@ class ObjectClient(Client):
         response = requests.post(url, json=payload)
         response.raise_for_status()
         return response.json()["result"]
-    
-class ClassClient(Client):
-    def __call__(self, *args, **kwargs):
-        payload = {"args": args, "kwargs": kwargs}
-        url = f"{self.base_url}/{self.endpoint}"
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-        obj_id = response.json()["result"]
-
-        url = f"{self.base_url}/"
-        response = requests.get(url)
-        response.raise_for_status()
-        attribute = response.json()["attributes"][obj_id]
-        return ObjectClient(
-            endpoint=self.endpoint, 
-            base_url=self.base_url, 
-            methods=attribute.get("methods", []), 
-            attributes=attribute.get("attributes", []),
-            obj_id=obj_id
-        )

@@ -4,9 +4,8 @@ import uuid
 import typer
 import logging
 import subprocess
-from typing import Annotated
+from typing import Annotated, Any
 from snapserve.server import Server
-from snapserve.dataclasses import Attribute
 from snapserve.loaders import load_attributes
 from snapserve.utils.connections import is_port_in_use
 from snapserve.consts import PID_DIR, LOG_DIR, CONFIG_DIR
@@ -15,7 +14,8 @@ from snapserve.consts import PID_DIR, LOG_DIR, CONFIG_DIR
 serve_app = typer.Typer()
 @serve_app.command("serve")
 def serve_command(
-    module_path: Annotated[str, typer.Argument(..., help="The path to the module to serve, in the format 'module_path:variable_name'.")],
+    module_path: Annotated[str, typer.Argument(..., help="The path to the module to serve, in the format 'module_path'.")],
+    expose: Annotated[str, typer.Option("--expose", "-e", help="The attribute to expose from the module.")] = None,
     host: Annotated[str, typer.Option("--host", "-h", help="The host to bind the server to.")] = "localhost",
     port: Annotated[int, typer.Option("--port", "-p", help="The port to bind the server to.")] = 8000,
     workers: Annotated[int, typer.Option("--workers", "-w", help="The number of worker processes to use.")] = None,
@@ -50,6 +50,8 @@ def serve_command(
             "--logging-path", out_file,
             "--working-dir", working_dir,
         ]
+        if expose is not None:
+            cmd.extend(["--expose", expose])
         if workers is not None:
             cmd.extend(["--workers", str(workers)])
         if max_concurrency is not None:
@@ -64,6 +66,7 @@ def serve_command(
         json.dump({
             "working_dir": working_dir,
             "module_path": module_path,
+            "expose": expose,
             "host": host,
             "port": port,
             "workers": workers,
@@ -94,7 +97,7 @@ def serve_command(
         datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-    attributes: dict[str, Attribute] = load_attributes(module_path, working_dir=working_dir)
+    attributes: dict[str, Any] = load_attributes(module_path, expose=expose, working_dir=working_dir)
     server = Server(
         attributes=attributes,
         host=host,

@@ -1,1 +1,1 @@
-from .client import remote
+from .remote import Remote

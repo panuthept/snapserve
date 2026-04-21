@@ -121,7 +121,7 @@ def create_app(
         attribute = attributes[attr_name]
 
         for path in attr_path:
-            attribute = getattr(attribute.attr, path, None)
+            attribute = getattr(attribute, path, None)
             if attribute is None:
                 return {"error": f"Attribute '{attr_name}.{'.'.join(attr_path)}' not found."}
             
@@ -147,9 +147,13 @@ def create_app(
             result = {"value": output}
         else:
             attr_name = payload["attr_name"]
-            new_attr_name = f"{attr_name}_{uuid.uuid4().hex[:8]}"
+            params = ", ".join(repr(arg) for arg in args) + ", ".join(f"{k}={v!r}" for k, v in kwargs.items())
+            # Generate a unique name for the new attribute to avoid collisions
+            new_attr_name = f"{attr_name}({params})_{uuid.uuid4().hex[:8]}"
+            while new_attr_name in attributes:
+                new_attr_name = f"{attr_name}({params})_{uuid.uuid4().hex[:8]}"
             attributes[new_attr_name] = output
-            result = {"new_attr_name": new_attr_name}
+            result = {"new_name": new_attr_name}
 
         # Update cache if enabled
         if cache_manager:

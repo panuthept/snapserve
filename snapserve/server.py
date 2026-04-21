@@ -77,6 +77,7 @@ class Server:
         thread = threading.Thread(target=server.run, daemon=True)
         thread.start()
 
+        time.sleep(0.5)  # Give the server a moment to start
         if not wait_for_connection(f"http://{self.host}:{self.port}"):
             raise RuntimeError(f"❌ Failed to start server at port {self.port}")
 

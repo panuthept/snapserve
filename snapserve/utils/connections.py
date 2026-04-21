@@ -3,14 +3,19 @@ import socket
 import requests
 
 
-def wait_for_connection(url: str, timeout: int = 1, max_wait: int = 15) -> bool:
-    for _ in range(max_wait * 2):  # ~max_wait seconds max
+def wait_for_connection(url: str, timeout: int = 5, max_retries: int = None) -> bool:
+    retries = 0
+    while True:
         try:
             r = requests.get(url, timeout=timeout)
             if r.status_code == 200:
                 return True
         except requests.exceptions.RequestException:
-            time.sleep(0.5)
+            print(f"Connection to {url} failed, retrying in {timeout} seconds...")
+            time.sleep(timeout)
+            retries += 1
+        if max_retries is not None and retries >= max_retries:
+            break
     return False
 
 def is_port_in_use(host: str, port: int) -> bool:

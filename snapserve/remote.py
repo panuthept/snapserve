@@ -3,12 +3,15 @@ import base64
 import pickle
 import requests
 from typing import Any
+from snapserve.utils.connections import wait_for_connection
 
     
 class Remote:
     def __init__(self, base_url: str = "http://localhost:8000"):
         self._base_url = base_url
         self._context_id = uuid.uuid4().hex
+        if not wait_for_connection(f"{self._base_url}/"):
+            raise RuntimeError(f"❌ Failed to connect to server at {self._base_url}. Please make sure the server is running and try again.")
 
     def __getattr__(self, name: str) -> Any:
         response = requests.get(
@@ -53,9 +56,6 @@ class _RemoteAttribute:
         self._base_url = base_url
         self._path = path or []
         self._context_id = context_id or uuid.uuid4().hex
-
-    def __add__(self, other):
-        print("Adding", self, "and", other)
 
     def __repr__(self):
         return f"<RemoteAttribute name={self._name} url={self._base_url} path={self._path}>"

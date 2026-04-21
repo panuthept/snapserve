@@ -1,8 +1,8 @@
 # SnapServe
 
-> Turn your Python functions, classes, and objects into remote services instantly.
+> Turn your Python functions, classes, objects, and variables, into remotely accessible entities with zero boilerplate.
 
-**SnapServe** is a lightweight framework that exposes your Python code as a remote service with a single command. It lets you serve functions, classes, or stateful objects without writing any API boilerplate, and interact with them through a simple Python client.
+**SnapServe** is a lightweight framework that exposes your Python functions, classes, objects, and variables as remote entities without writing any API boilerplate, and allows you to interact with them through a simple remote interface.
 
 Instead of building and maintaining server code (e.g., with FastAPI or Flask), you focus on your application logic, SnapServe handles the serving layer and execution for you.
 

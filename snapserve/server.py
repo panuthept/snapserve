@@ -140,6 +140,7 @@ def create_app(
 
         args = payload.get("args", [])
         kwargs = payload.get("kwargs", {})
+        context_id = payload["context_id"]
 
         output = attribute(*args, **kwargs)
 
@@ -149,9 +150,9 @@ def create_app(
             attr_name = payload["attr_name"]
             params = ", ".join(repr(arg) for arg in args) + ", ".join(f"{k}={v!r}" for k, v in kwargs.items())
             # Generate a unique name for the new attribute to avoid collisions
-            new_attr_name = f"{attr_name}({params})_{uuid.uuid4().hex[:8]}"
+            new_attr_name = f"{attr_name}({params})_{context_id}_{uuid.uuid4().hex[:8]}"
             while new_attr_name in attributes:
-                new_attr_name = f"{attr_name}({params})_{uuid.uuid4().hex[:8]}"
+                new_attr_name = f"{attr_name}({params})_{context_id}_{uuid.uuid4().hex[:8]}"
             attributes[new_attr_name] = output
             result = {"new_name": new_attr_name}
 
@@ -161,6 +162,14 @@ def create_app(
                 cache_key = json.dumps(payload, sort_keys=True)
                 cache_manager.set(cache_key, result)
         return result
+    
+    def delete_attributes(payload: dict) -> int:
+        context_id = payload["context_id"]
+        keys_to_delete = [key for key in attributes if f"_{context_id}_" in key]
+        for key in keys_to_delete:
+            attribute_to_delete = attributes.pop(key, None)  # Remove from attributes
+            del attribute_to_delete  # Ensure it's deleted from memory
+        return len(keys_to_delete)
 
     async def handle_get_request(payload: dict) -> Any:
         loop = asyncio.get_running_loop()
@@ -179,6 +188,16 @@ def create_app(
             return await loop.run_in_executor(
                 thread_executor, 
                 call_attribute,
+                payload
+            )
+        
+    async def handle_delete_request(payload: dict) -> Any:
+        loop = asyncio.get_running_loop()
+        # Execute the attribute in a thread to avoid blocking the event loop
+        async with semaphore:
+            return await loop.run_in_executor(
+                thread_executor, 
+                delete_attributes,
                 payload
             )
         
@@ -274,6 +293,38 @@ def create_app(
             raise
         except Exception as e:
             logging.error(f"Error occurred while handling POST request {request_id} for '/attribute': {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        
+    @app.delete("/attribute")
+    async def delete_attribute(request: Request):
+        request_id = uuid.uuid4().hex
+        try:
+            payload = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON payload.")
+        logging.info(f"Received DELETE request {request_id} at '/attribute' endpoint with payload: {payload}")
+
+        if "context_id" not in payload:
+            raise HTTPException(status_code=400, detail="Missing 'context_id' field in payload.")
+        
+        start_time = time.monotonic()
+
+        try:
+            coro = handle_delete_request(payload)
+            if timeout:
+                result = await asyncio.wait_for(coro, timeout=timeout)
+            else:
+                result = await coro
+            logging.info(f"Completed DELETE request {request_id} for '/attribute' in {time.monotonic() - start_time:.2f} seconds")
+            return {"detail": f"Deleted {result} attributes successfully."}
+        except asyncio.TimeoutError:
+            logging.error(f"DELETE request {request_id} for '/attribute' timed out after {timeout} seconds")
+            raise HTTPException(status_code=504, detail="Request timed out.")
+        except HTTPException:
+            logging.error(f"HTTPException occurred while handling DELETE request {request_id} for '/attribute'")
+            raise
+        except Exception as e:
+            logging.error(f"Error occurred while handling DELETE request {request_id} for '/attribute': {e}")
             raise HTTPException(status_code=500, detail=str(e))
         
     # ------------------------------------------------------------------------------------------

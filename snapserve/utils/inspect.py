@@ -1,3 +1,5 @@
+import pickle
+import base64
 import inspect
 
 
@@ -37,5 +39,9 @@ def get_attr_info(attr) -> dict:
                 parts.append(f"{param.name}={value!r}")
         info["params"] = f"({", ".join(parts)})"
     elif attr_type == "variable":
-        info["value"] = attr
+        # Use pickle to serialize the value if it's not a python built-in type
+        if isinstance(attr, (int, float, str, bool, list, dict, type(None))):
+            info["value"] = attr
+        else:
+            info["encoded_value"] = base64.b64encode(pickle.dumps(attr)).decode("ascii")
     return info

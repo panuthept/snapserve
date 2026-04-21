@@ -1,4 +1,6 @@
 import uuid
+import base64
+import pickle
 import requests
 from typing import Any
 
@@ -18,10 +20,14 @@ class Remote:
             }
         )
         response.raise_for_status()
+        if "error" in response.json():
+            raise AttributeError(response.json()["error"])
 
         # This will return the value immediately if it's a variable, or return a RemoteAttribute for functions, classes, and objects
         if "value" in response.json():
             return response.json()["value"]
+        elif "encoded_value" in response.json():
+            return pickle.loads(base64.b64decode(response.json()["encoded_value"]))
         else:
             return _RemoteAttribute(name, self._base_url, context_id=self._context_id)
         
@@ -41,13 +47,15 @@ class _RemoteAttribute:
         name: str, 
         base_url: str = "http://localhost:8000",
         path: list[str] = None,
-        context_id: str = None
+        context_id: str = None,
     ):
-        self._id = id
         self._name = name
         self._base_url = base_url
         self._path = path or []
         self._context_id = context_id or uuid.uuid4().hex
+
+    def __add__(self, other):
+        print("Adding", self, "and", other)
 
     def __repr__(self):
         return f"<RemoteAttribute name={self._name} url={self._base_url} path={self._path}>"
@@ -68,6 +76,10 @@ class _RemoteAttribute:
         # This will return the value immediately if it's a variable, or return a RemoteAttribute for a new object created by a function or class instantiation
         if "value" in response.json():
             return response.json()["value"]
+        elif "encoded_value" in response.json():
+            return pickle.loads(base64.b64decode(response.json()["encoded_value"]))
+        elif "error" in response.json():
+            raise AttributeError(response.json()["error"])
         else:
             return _RemoteAttribute(response.json()["new_name"], self._base_url, context_id=self._context_id)
 
@@ -86,5 +98,9 @@ class _RemoteAttribute:
         # This will return the value immediately if it's a variable, or return a RemoteAttribute for functions, classes, and objects
         if "value" in response.json():
             return response.json()["value"]
+        elif "encoded_value" in response.json():
+            return pickle.loads(base64.b64decode(response.json()["encoded_value"]))
+        elif "error" in response.json():
+            raise AttributeError(response.json()["error"])
         else:
             return _RemoteAttribute(self._name, self._base_url, path=path, context_id=self._context_id)

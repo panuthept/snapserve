@@ -223,11 +223,11 @@ def create_app(
         logging.info(f"Received GET request {request_id} at '/attribute' endpoint with payload: {payload}")
         
         if "attr_name" not in payload:
-            raise HTTPException(status_code=400, detail="Missing 'attr_name' field in payload.")
+            return {"error": "Missing 'attr_name' field in payload."}
         
         attr_name = payload["attr_name"]
         if attr_name not in attributes:
-            raise HTTPException(status_code=400, detail=f"Attribute '{attr_name}' not found.")
+            return {"error": f"Attribute '{attr_name}' not found."}
         
         start_time = time.monotonic()
 
@@ -260,11 +260,11 @@ def create_app(
         logging.info(f"Received POST request {request_id} at '/attribute' endpoint with payload: {payload}")
 
         if "attr_name" not in payload:
-            raise HTTPException(status_code=400, detail="Missing 'attr_name' field in payload.")
+            return {"error": "Missing 'attr_name' field in payload."}
         
         attr_name = payload["attr_name"]
         if attr_name not in attributes:
-            raise HTTPException(status_code=400, detail=f"Attribute '{attr_name}' not found.")
+            return {"error": f"Attribute '{attr_name}' not found."}
 
         start_time = time.monotonic()
 
@@ -305,7 +305,7 @@ def create_app(
         logging.info(f"Received DELETE request {request_id} at '/attribute' endpoint with payload: {payload}")
 
         if "context_id" not in payload:
-            raise HTTPException(status_code=400, detail="Missing 'context_id' field in payload.")
+            return {"error": "Missing 'context_id' field in payload."}
         
         start_time = time.monotonic()
 

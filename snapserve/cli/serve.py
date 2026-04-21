@@ -4,9 +4,8 @@ import uuid
 import typer
 import logging
 import subprocess
-from typing import Annotated
+from typing import Annotated, Any
 from snapserve.server import Server
-from snapserve.dataclasses import Attribute
 from snapserve.loaders import load_attributes
 from snapserve.utils.connections import is_port_in_use
 from snapserve.consts import PID_DIR, LOG_DIR, CONFIG_DIR
@@ -94,7 +93,7 @@ def serve_command(
         datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-    attributes: dict[str, Attribute] = load_attributes(module_path, working_dir=working_dir)
+    attributes: dict[str, Any] = load_attributes(module_path, working_dir=working_dir)
     server = Server(
         attributes=attributes,
         host=host,

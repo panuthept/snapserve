@@ -22,17 +22,19 @@ class RemoteAttribute:
         base_url: str = "http://localhost:8000",
         path: list[str] = None,
     ):
-        self.name = name
-        self.base_url = base_url
-        self.path = path or []
-        print(f"Initialized RemoteAttribute with name={name}, base_url={base_url}, path={self.path}")
+        self._name = name
+        self._base_url = base_url
+        self._path = path or []
+
+    def __repr__(self):
+        return f"<RemoteAttribute name={self._name} base_url={self._base_url} path={self._path}>"
 
     def __call__(self, *args, **kwargs):
         response = requests.post(
-            f"{self.base_url}/attribute", 
+            f"{self._base_url}/attribute", 
             json={
-                "attr_name": self.name,
-                "attr_path": self.path,
+                "attr_name": self._name,
+                "attr_path": self._path,
                 "args": args,
                 "kwargs": kwargs
             }
@@ -43,14 +45,14 @@ class RemoteAttribute:
         if "value" in response.json():
             return response.json()["value"]
         else:
-            return RemoteAttribute(response.json()["new_attribute_name"], self.base_url)
+            return RemoteAttribute(response.json()["new_name"], self._base_url)
 
     def __getattr__(self, attr_name: str):
         response = requests.get(
-            f"{self.base_url}/attribute", 
+            f"{self._base_url}/attribute", 
             json={
-                "attr_name": self.name,
-                "attr_path": self.path,
+                "attr_name": self._name,
+                "attr_path": self._path + [attr_name],
             }
         )
         response.raise_for_status()
@@ -59,4 +61,4 @@ class RemoteAttribute:
         if "value" in response.json():
             return response.json()["value"]
         else:
-            return RemoteAttribute(self.name, self.base_url, self.path + [attr_name])
+            return RemoteAttribute(self._name, self._base_url, self._path + [attr_name])

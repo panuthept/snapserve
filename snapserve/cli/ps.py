@@ -13,7 +13,7 @@ def ps_command(
     """
     List all running snapserve servers.
     """
-    if not silent: print("SERVER ID       PID       STATUS       URL       MODULE")
+    if not silent: print("SERVER ID                              PID         STATUS       URL       MODULE")
     running_servers = {}
     for pid_file in PID_DIR.glob("*.pid"):
         process_id = pid_file.stem

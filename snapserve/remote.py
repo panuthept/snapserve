@@ -1,21 +1,25 @@
 import requests
 from typing import Any
 
+    
+class Remote:
+    def __init__(self, base_url: str = "http://localhost:8000"):
+        self._base_url = base_url
 
-def remote(name: str, base_url: str = "http://localhost:8000") -> Any:
-    response = requests.get(
-        f"{base_url}/attribute", 
-        json={"attr_name": name}
-    )
-    response.raise_for_status()
+    def __getattr__(self, name: str) -> Any:
+        response = requests.get(
+            f"{self._base_url}/attribute", 
+            json={"attr_name": name}
+        )
+        response.raise_for_status()
 
-    # This will return the value immediately if it's a variable, or return a RemoteAttribute for functions, classes, and objects
-    if "value" in response.json():
-        return response.json()["value"]
-    else:
-        return RemoteAttribute(name, base_url)
+        # This will return the value immediately if it's a variable, or return a RemoteAttribute for functions, classes, and objects
+        if "value" in response.json():
+            return response.json()["value"]
+        else:
+            return _RemoteAttribute(name, self._base_url)
 
-class RemoteAttribute:
+class _RemoteAttribute:
     def __init__(
         self, 
         name: str, 
@@ -27,7 +31,7 @@ class RemoteAttribute:
         self._path = path or []
 
     def __repr__(self):
-        return f"<RemoteAttribute name={self._name} base_url={self._base_url} path={self._path}>"
+        return f"<RemoteAttribute name={self._name} url={self._base_url} path={self._path}>"
 
     def __call__(self, *args, **kwargs):
         response = requests.post(
@@ -45,7 +49,7 @@ class RemoteAttribute:
         if "value" in response.json():
             return response.json()["value"]
         else:
-            return RemoteAttribute(response.json()["new_name"], self._base_url)
+            return _RemoteAttribute(response.json()["new_name"], self._base_url)
 
     def __getattr__(self, attr_name: str):
         response = requests.get(
@@ -61,4 +65,4 @@ class RemoteAttribute:
         if "value" in response.json():
             return response.json()["value"]
         else:
-            return RemoteAttribute(self._name, self._base_url, self._path + [attr_name])
+            return _RemoteAttribute(self._name, self._base_url, self._path + [attr_name])

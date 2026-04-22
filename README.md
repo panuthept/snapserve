@@ -47,17 +47,19 @@ Connect from any Python script:
 from snapserve import Remote
 
 with Remote("http://localhost:8000") as remote:
-  # Now you can call remote.add, remote.Calculator, remote.calc, and remote.z here as if they were local!
   # 🔹 Functions: Call remote functions like local ones
   result = remote.add(5, 3)
   print(result)   # → 8
+
   # 🔹 Classes: Instantiate and use remote classes
   calc = remote.Calculator(bias=1.0) # Instantiate with custom arguments
   result = calc.multiply(5, 3)
   print(result)   # → 16 (5 * 3 + 1.0)
+
   # 🔹 Objects: Use pre-initialized remote objects
   result = remote.calc.multiply(5, 3)
   print(result)   # → 17 (5 * 3 + 2.0)
+
   # 🔹 Variables: Access shared variables directly
   print(remote.z) # → 10
   remote.z = 20   # Remote variable can be updated and will reflect across all clients
@@ -68,7 +70,7 @@ with Remote("http://localhost:8000") as remote:
 
 ## 🛠️ CLI Commands
 
-Serve Python functions, classes, and objects as an API.
+Serve Python functions, classes, objects, and variables as an API.
 ```
 Usage: snapserve serve [OPTIONS] MODULE_PATH
 Arguments:

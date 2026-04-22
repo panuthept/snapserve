@@ -17,6 +17,8 @@ class Remote:
             attr_name=name,
             attr_path=[]
         )
+        if "error" in response:
+            raise AttributeError(response["error"])
         # This will return the value immediately if it's a variable, or return a RemoteAttribute for functions, classes, and objects
         if "value" in response:
             return response["value"]
@@ -68,13 +70,13 @@ class _RemoteAttribute:
             args=args,
             kwargs=kwargs
         )
+        if "error" in response:
+            raise AttributeError(response["error"])
         # This will return the value immediately if it's a variable, or return a RemoteAttribute for a new object created by a function or class instantiation
         if "value" in response:
             return response["value"]
         elif "encoded_value" in response:
             return pickle.loads(base64.b64decode(response["encoded_value"]))
-        elif "error" in response:
-            raise AttributeError(response["error"])
         else:
             return _RemoteAttribute(response["new_name"], self._client, context_id=self._context_id)
     
@@ -85,13 +87,13 @@ class _RemoteAttribute:
             attr_name=self._name,
             attr_path=path,
         )
+        if "error" in response:
+            raise AttributeError(response["error"])
         # This will return the value immediately if it's a variable, or return a RemoteAttribute for functions, classes, and objects
         if "value" in response:
             return response["value"]
         elif "encoded_value" in response:
             return pickle.loads(base64.b64decode(response["encoded_value"]))
-        elif "error" in response:
-            raise AttributeError(response["error"])
         else:
             return _RemoteAttribute(self._name, self._client, path=path, context_id=self._context_id)
         
@@ -103,4 +105,5 @@ class _RemoteAttribute:
         if not self._mutable:
             raise AttributeError("Remote attributes are read-only. To modify them, use the Mutable wrapper.")
         
-        set_remote_attribute(self._client, self._context_id, self._name, self._path, value)
+        path = self._path + [name]
+        set_remote_attribute(self._client, self._context_id, self._name, path, value)

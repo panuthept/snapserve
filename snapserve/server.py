@@ -147,11 +147,12 @@ def create_app(
             attribute = value
             attributes[attr_name] = attribute
         else:
-            for path in attr_path:
+            for path in attr_path[:-1]:
                 attribute = getattr(attribute, path, None)
                 if attribute is None:
                     return {"error": f"Attribute '{attr_name}.{'.'.join(attr_path)}' not found."}
-            attribute = value
+            setattr(attribute, attr_path[-1], value)
+            attribute = getattr(attribute, attr_path[-1], None)
             
         return attribute
     

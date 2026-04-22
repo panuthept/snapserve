@@ -15,7 +15,7 @@ def set_remote_attribute(client: Client, context_id: str, name: str, path: list,
     if remote_type != "variable":
         raise TypeError(f"Only variables can be mutated on the remote server. Attempting to mutate a remote attribute of type '{remote_type}'.")
     if str(type(value)) != str(type(response["value"])):
-        raise TypeError(f"Type mismatch when setting remote attribute '{name}'. Expected type '{type(response['value']).__name__}', got type '{type(value).__name__}'.")
+        raise TypeError(f"Type mismatch: Setting remote attribute '{name}'. Expected type '{type(response['value']).__name__}', got type '{type(value).__name__}'.")
     
     # Type check to see if the value is JSON serializable, if not, use pickle to serialize it and send it as a string
     if isinstance(value, (int, float, str, bool, list, dict, type(None))):

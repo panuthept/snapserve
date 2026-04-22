@@ -267,7 +267,6 @@ def create_app(
             payload = await request.json()
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid JSON payload.")
-        logging.info(f"Received GET request {request_id} at '/attribute' endpoint with payload: {payload}")
         
         if "attr_name" not in payload:
             return {"error": "Missing 'attr_name' field in payload."}
@@ -285,16 +284,16 @@ def create_app(
                 result = await asyncio.wait_for(coro, timeout=timeout)
             else:
                 result = await coro
-            logging.info(f"Completed GET request {request_id} for '/attribute' in {time.monotonic() - start_time:.2f} seconds")
+            logging.info(f"Completed GET request {request_id} for '/attribute' with payload: {payload} in {time.monotonic() - start_time:.2f} seconds")
             return result
         except asyncio.TimeoutError:
-            logging.error(f"GET request {request_id} for '/attribute' timed out after {timeout} seconds")
+            logging.error(f"GET request {request_id} for '/attribute' with payload: {payload} timed out after {timeout} seconds")
             raise HTTPException(status_code=504, detail="Request timed out.")
         except HTTPException:
-            logging.error(f"HTTPException occurred while handling GET request {request_id} for '/attribute'")
+            logging.error(f"HTTPException occurred while handling GET request {request_id} for '/attribute' with payload: {payload}")
             raise
         except Exception as e:
-            logging.error(f"Error occurred while handling GET request {request_id} for '/attribute': {e}")
+            logging.error(f"Error occurred while handling GET request {request_id} for '/attribute' with payload: {payload}: {e}")
             raise HTTPException(status_code=500, detail=str(e))
         
     @app.put("/attribute")
@@ -304,7 +303,6 @@ def create_app(
             payload = await request.json()
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid JSON payload.")
-        logging.info(f"Received PUT request {request_id} at '/attribute' endpoint with payload: {payload}")
         
         if "attr_name" not in payload:
             return {"error": "Missing 'attr_name' field in payload."}
@@ -322,16 +320,16 @@ def create_app(
                 result = await asyncio.wait_for(coro, timeout=timeout)
             else:
                 result = await coro
-            logging.info(f"Completed PUT request {request_id} for '/attribute' in {time.monotonic() - start_time:.2f} seconds")
+            logging.info(f"Completed PUT request {request_id} for '/attribute' with payload: {payload} in {time.monotonic() - start_time:.2f} seconds")
             return result
         except asyncio.TimeoutError:
-            logging.error(f"PUT request {request_id} for '/attribute' timed out after {timeout} seconds")
+            logging.error(f"PUT request {request_id} for '/attribute' with payload: {payload} timed out after {timeout} seconds")
             raise HTTPException(status_code=504, detail="Request timed out.")
         except HTTPException:
-            logging.error(f"HTTPException occurred while handling PUT request {request_id} for '/attribute'")
+            logging.error(f"HTTPException occurred while handling PUT request {request_id} for '/attribute' with payload: {payload}")
             raise
         except Exception as e:
-            logging.error(f"Error occurred while handling PUT request {request_id} for '/attribute': {e}")
+            logging.error(f"Error occurred while handling PUT request {request_id} for '/attribute' with payload: {payload}: {e}")
             raise HTTPException(status_code=500, detail=str(e))
     
     @app.post("/attribute")
@@ -341,7 +339,6 @@ def create_app(
             payload = await request.json()
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid JSON payload.")
-        logging.info(f"Received POST request {request_id} at '/attribute' endpoint with payload: {payload}")
 
         if "attr_name" not in payload:
             return {"error": "Missing 'attr_name' field in payload."}
@@ -357,7 +354,7 @@ def create_app(
             cache_key = json.dumps(payload, sort_keys=True)
             cached_result = cache_manager.get(cache_key)
             if cached_result is not None:
-                logging.info(f"Completed POST request {request_id} for '/attribute' in {time.monotonic() - start_time:.2f} seconds (Cache Hit)")
+                logging.info(f"Completed POST request {request_id} for '/attribute' with payload: {payload} in {time.monotonic() - start_time:.2f} seconds (Cache Hit)")
                 return cached_result
         
         # Call the attribute and return the result
@@ -367,16 +364,16 @@ def create_app(
                 result = await asyncio.wait_for(coro, timeout=timeout)
             else:
                 result = await coro
-            logging.info(f"Completed POST request {request_id} for '/attribute' in {time.monotonic() - start_time:.2f} seconds")
+            logging.info(f"Completed POST request {request_id} for '/attribute' with payload: {payload} in {time.monotonic() - start_time:.2f} seconds")
             return result
         except asyncio.TimeoutError:
-            logging.error(f"POST request {request_id} for '/attribute' timed out after {timeout} seconds")
+            logging.error(f"POST request {request_id} for '/attribute' with payload: {payload} timed out after {timeout} seconds")
             raise HTTPException(status_code=504, detail="Request timed out.")
         except HTTPException:
-            logging.error(f"HTTPException occurred while handling POST request {request_id} for '/attribute'")
+            logging.error(f"HTTPException occurred while handling POST request {request_id} for '/attribute' with payload: {payload}")
             raise
         except Exception as e:
-            logging.error(f"Error occurred while handling POST request {request_id} for '/attribute': {e}")
+            logging.error(f"Error occurred while handling POST request {request_id} for '/attribute' with payload: {payload}: {e}")
             raise HTTPException(status_code=500, detail=str(e))
         
     @app.delete("/attribute")
@@ -386,7 +383,6 @@ def create_app(
             payload = await request.json()
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid JSON payload.")
-        logging.info(f"Received DELETE request {request_id} at '/attribute' endpoint with payload: {payload}")
 
         if "context_id" not in payload:
             return {"error": "Missing 'context_id' field in payload."}
@@ -399,16 +395,16 @@ def create_app(
                 result = await asyncio.wait_for(coro, timeout=timeout)
             else:
                 result = await coro
-            logging.info(f"Completed DELETE request {request_id} for '/attribute' in {time.monotonic() - start_time:.2f} seconds")
+            logging.info(f"Completed DELETE request {request_id} for '/attribute' with payload: {payload} in {time.monotonic() - start_time:.2f} seconds")
             return {"detail": f"Deleted {result} attributes successfully."}
         except asyncio.TimeoutError:
-            logging.error(f"DELETE request {request_id} for '/attribute' timed out after {timeout} seconds")
+            logging.error(f"DELETE request {request_id} for '/attribute' with payload: {payload} timed out after {timeout} seconds")
             raise HTTPException(status_code=504, detail="Request timed out.")
         except HTTPException:
-            logging.error(f"HTTPException occurred while handling DELETE request {request_id} for '/attribute'")
+            logging.error(f"HTTPException occurred while handling DELETE request {request_id} for '/attribute' with payload: {payload}")
             raise
         except Exception as e:
-            logging.error(f"Error occurred while handling DELETE request {request_id} for '/attribute': {e}")
+            logging.error(f"Error occurred while handling DELETE request {request_id} for '/attribute' with payload: {payload}: {e}")
             raise HTTPException(status_code=500, detail=str(e))
         
     # ------------------------------------------------------------------------------------------

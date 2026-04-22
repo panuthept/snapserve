@@ -32,7 +32,7 @@ calc = Calculator(bias=2.0)
 z = 10
 ```
 
-### Serve them easily
+### Serve them without messing with API code
 Expose anything with a single command:
 ```bash
 snapserve serve calculator \

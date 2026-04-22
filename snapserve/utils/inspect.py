@@ -17,7 +17,7 @@ def get_attr_type(attr) -> str:
     
 def get_attr_info(attr) -> dict:
     attr_type = get_attr_type(attr)
-    info = {"type": attr_type}
+    info = {"type": attr_type, "repr": repr(attr)}
     
     if attr_type == "function":
         info["signature"] = str(inspect.signature(attr))

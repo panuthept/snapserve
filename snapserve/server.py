@@ -2,6 +2,8 @@ import os
 import uuid
 import time
 import json
+import pickle
+import base64
 import atexit
 import logging
 import uvicorn
@@ -128,8 +130,39 @@ def create_app(
             
         return attribute
     
+    def set_nested_attribute(payload: dict) -> Any:
+        attr_name = payload["attr_name"]
+        attr_path = payload.get("attr_path", [])
+
+        if "value" in payload:
+            value = payload["value"]
+        elif "encoded_value" in payload:
+            value = pickle.loads(base64.b64decode(payload["encoded_value"]))
+
+        if attr_name not in attributes:
+            return {"error": f"Attribute '{attr_name}' not found."}
+        attribute = attributes[attr_name]
+
+        if len(attr_path) == 0:
+            attribute = value
+            attributes[attr_name] = attribute
+        else:
+            for path in attr_path:
+                attribute = getattr(attribute, path, None)
+                if attribute is None:
+                    return {"error": f"Attribute '{attr_name}.{'.'.join(attr_path)}' not found."}
+            attribute = value
+            
+        return attribute
+    
     def get_attribute_info(payload: dict) -> dict:
         attribute = get_nested_attribute(payload)
+        if isinstance(attribute, dict) and "error" in attribute:
+            return attribute
+        return get_attr_info(attribute)
+    
+    def update_attribute(payload: dict) -> dict:
+        attribute = set_nested_attribute(payload)
         if isinstance(attribute, dict) and "error" in attribute:
             return attribute
         return get_attr_info(attribute)
@@ -146,7 +179,10 @@ def create_app(
         output = attribute(*args, **kwargs)
 
         if get_attr_type(output) == "variable":
-            result = {"value": output}
+            if isinstance(output, (int, float, str, bool, list, dict, type(None))):
+                result = {"value": output}
+            else:
+                result = {"encoded_value": base64.b64encode(pickle.dumps(output)).decode("ascii")}
         else:
             attr_name = payload["attr_name"]
             params = ", ".join(repr(arg) for arg in args) + ", ".join(f"{k}={v!r}" for k, v in kwargs.items())
@@ -175,10 +211,19 @@ def create_app(
     async def handle_get_request(payload: dict) -> Any:
         loop = asyncio.get_running_loop()
         # Execute the attribute in a thread to avoid blocking the event loop
+        return await loop.run_in_executor(
+            thread_executor, 
+            get_attribute_info,
+            payload
+        )
+    
+    async def handle_put_request(payload: dict) -> Any:
+        loop = asyncio.get_running_loop()
+        # Execute the attribute in a thread to avoid blocking the event loop
         async with semaphore:
             return await loop.run_in_executor(
                 thread_executor, 
-                get_attribute_info,
+                update_attribute,
                 payload
             )
         
@@ -245,10 +290,47 @@ def create_app(
             logging.error(f"GET request {request_id} for '/attribute' timed out after {timeout} seconds")
             raise HTTPException(status_code=504, detail="Request timed out.")
         except HTTPException:
-            logging.error(f"sHTTPException occurred while handling GET request {request_id} for '/attribute'")
+            logging.error(f"HTTPException occurred while handling GET request {request_id} for '/attribute'")
             raise
         except Exception as e:
             logging.error(f"Error occurred while handling GET request {request_id} for '/attribute': {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        
+    @app.put("/attribute")
+    async def put_attribute(request: Request):
+        request_id = uuid.uuid4().hex
+        try:
+            payload = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON payload.")
+        logging.info(f"Received PUT request {request_id} at '/attribute' endpoint with payload: {payload}")
+        
+        if "attr_name" not in payload:
+            return {"error": "Missing 'attr_name' field in payload."}
+        
+        attr_name = payload["attr_name"]
+        if attr_name not in attributes:
+            return {"error": f"Attribute '{attr_name}' not found."}
+        
+        start_time = time.monotonic()
+
+        # Update the attribute and return the result
+        try:
+            coro = handle_put_request(payload)
+            if timeout:
+                result = await asyncio.wait_for(coro, timeout=timeout)
+            else:
+                result = await coro
+            logging.info(f"Completed PUT request {request_id} for '/attribute' in {time.monotonic() - start_time:.2f} seconds")
+            return result
+        except asyncio.TimeoutError:
+            logging.error(f"PUT request {request_id} for '/attribute' timed out after {timeout} seconds")
+            raise HTTPException(status_code=504, detail="Request timed out.")
+        except HTTPException:
+            logging.error(f"HTTPException occurred while handling PUT request {request_id} for '/attribute'")
+            raise
+        except Exception as e:
+            logging.error(f"Error occurred while handling PUT request {request_id} for '/attribute': {e}")
             raise HTTPException(status_code=500, detail=str(e))
     
     @app.post("/attribute")

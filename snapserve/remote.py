@@ -1,106 +1,106 @@
 import uuid
 import base64
 import pickle
-import requests
 from typing import Any
-from snapserve.utils.connections import wait_for_connection
+from snapserve.client import Client
+from snapserve.utils.attribute import set_remote_attribute
 
-    
+
 class Remote:
     def __init__(self, base_url: str = "http://localhost:8000"):
-        self._base_url = base_url
-        self._context_id = uuid.uuid4().hex
-        if not wait_for_connection(f"{self._base_url}/"):
-            raise RuntimeError(f"❌ Failed to connect to server at {self._base_url}. Please make sure the server is running and try again.")
+        self._context_id = None
+        self._client = Client(base_url)
 
     def __getattr__(self, name: str) -> Any:
-        response = requests.get(
-            f"{self._base_url}/attribute", 
-            json={
-                "context_id": self._context_id,
-                "attr_name": name,
-                "attr_path": []
-            }
+        response = self._client.get(
+            context_id=self._context_id,
+            attr_name=name,
+            attr_path=[]
         )
-        response.raise_for_status()
-        if "error" in response.json():
-            raise AttributeError(response.json()["error"])
-
         # This will return the value immediately if it's a variable, or return a RemoteAttribute for functions, classes, and objects
-        if "value" in response.json():
-            return response.json()["value"]
-        elif "encoded_value" in response.json():
-            return pickle.loads(base64.b64decode(response.json()["encoded_value"]))
+        if "value" in response:
+            return response["value"]
+        elif "encoded_value" in response:
+            return pickle.loads(base64.b64decode(response["encoded_value"]))
         else:
-            return _RemoteAttribute(name, self._base_url, context_id=self._context_id)
+            return _RemoteAttribute(name, self._client, context_id=self._context_id)
+        
+    def __setattr__(self, name: str, value: Any):
+        if name in {"_context_id", "_client"}:
+            super().__setattr__(name, value)
+            return
+        raise AttributeError("Remote attributes are read-only. To modify them, use the Mutable wrapper.")
         
     def __enter__(self):
+        self._context_id = uuid.uuid4().hex
         return self
 
     def __exit__(self, exc_type, exc, tb):
-        response = requests.delete(
-            f"{self._base_url}/attribute", 
-            json={"context_id": self._context_id}
-        )
-        response.raise_for_status()
+        self._client.delete(context_id=self._context_id)
 
 class _RemoteAttribute:
     def __init__(
         self, 
         name: str, 
-        base_url: str = "http://localhost:8000",
+        client: Client,
         path: list[str] = None,
         context_id: str = None,
     ):
         self._name = name
-        self._base_url = base_url
+        self._client = client
         self._path = path or []
         self._context_id = context_id or uuid.uuid4().hex
+        self._mutable = False
 
     def __repr__(self):
-        return f"<RemoteAttribute name={self._name} url={self._base_url} path={self._path}>"
+        response = self._client.get(
+            context_id=self._context_id,
+            attr_name=self._name,
+            attr_path=self._path,
+        )
+        return response["repr"]
 
     def __call__(self, *args, **kwargs):
-        response = requests.post(
-            f"{self._base_url}/attribute", 
-            json={
-                "context_id": self._context_id,
-                "attr_name": self._name,
-                "attr_path": self._path,
-                "args": args,
-                "kwargs": kwargs
-            }
+        response = self._client.post(
+            context_id=self._context_id,
+            attr_name=self._name,
+            attr_path=self._path,
+            args=args,
+            kwargs=kwargs
         )
-        response.raise_for_status()
-
         # This will return the value immediately if it's a variable, or return a RemoteAttribute for a new object created by a function or class instantiation
-        if "value" in response.json():
-            return response.json()["value"]
-        elif "encoded_value" in response.json():
-            return pickle.loads(base64.b64decode(response.json()["encoded_value"]))
-        elif "error" in response.json():
-            raise AttributeError(response.json()["error"])
+        if "value" in response:
+            return response["value"]
+        elif "encoded_value" in response:
+            return pickle.loads(base64.b64decode(response["encoded_value"]))
+        elif "error" in response:
+            raise AttributeError(response["error"])
         else:
-            return _RemoteAttribute(response.json()["new_name"], self._base_url, context_id=self._context_id)
-
-    def __getattr__(self, attr_name: str):
-        path = self._path + [attr_name]
-        response = requests.get(
-            f"{self._base_url}/attribute", 
-            json={
-                "context_id": self._context_id,
-                "attr_name": self._name,
-                "attr_path": path,
-            }
+            return _RemoteAttribute(response["new_name"], self._client, context_id=self._context_id)
+    
+    def __getattr__(self, name: str):
+        path = self._path + [name]
+        response = self._client.get(
+            context_id=self._context_id,
+            attr_name=self._name,
+            attr_path=path,
         )
-        response.raise_for_status()
-
         # This will return the value immediately if it's a variable, or return a RemoteAttribute for functions, classes, and objects
-        if "value" in response.json():
-            return response.json()["value"]
-        elif "encoded_value" in response.json():
-            return pickle.loads(base64.b64decode(response.json()["encoded_value"]))
-        elif "error" in response.json():
-            raise AttributeError(response.json()["error"])
+        if "value" in response:
+            return response["value"]
+        elif "encoded_value" in response:
+            return pickle.loads(base64.b64decode(response["encoded_value"]))
+        elif "error" in response:
+            raise AttributeError(response["error"])
         else:
-            return _RemoteAttribute(self._name, self._base_url, path=path, context_id=self._context_id)
+            return _RemoteAttribute(self._name, self._client, path=path, context_id=self._context_id)
+        
+    def __setattr__(self, name: str, value: Any):
+        if name in {"_name", "_client", "_path", "_context_id", "_mutable"}:
+            super().__setattr__(name, value)
+            return
+        
+        if not self._mutable:
+            raise AttributeError("Remote attributes are read-only. To modify them, use the Mutable wrapper.")
+        
+        set_remote_attribute(self._client, self._context_id, self._name, self._path, value)
